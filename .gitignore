@@ -7,11 +7,11 @@ gaussian_process/.ipynb_checkpoints
 spline/.ipynb_checkpoints
 parametric/.ipynb_checkpoints
 
-spline/models/**/*
+spline/models/**/*.*
 !spline/models/**/*.stan
 
-gaussian_process/models/**/*
+gaussian_process/models/**/*.*
 !gaussian_process/models/**/*.stan
 
-parametric/models/**/*
+parametric/models/**/*.*
 !parametric/models/**/*.stan
