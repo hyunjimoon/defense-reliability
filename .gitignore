@@ -2,10 +2,7 @@
 
 data/.RData
 data/.Rhistory
-data/.ipynb_checkpoints
-gaussian_process/.ipynb_checkpoints
-spline/.ipynb_checkpoints
-parametric/.ipynb_checkpoints
+**/.ipynb_checkpoints
 
 spline/models/**/*.*
 !spline/models/**/*.stan
