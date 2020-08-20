@@ -103,7 +103,7 @@ model {
 
 generated quantities {
   vector[N] obs_mu;
-  
+  vector[N] log_lik;
   for (n in 1:N) {
     obs_mu[n] = mu 
               + age_re[age_ind[n]]                                 //fixed effects
@@ -111,25 +111,26 @@ generated quantities {
               + ship_re[ship_ind[n]]   
               + GP_engine[age_ind[n],ship_engine_ind[ship_ind[n]]] //f_engine 
               + GP_ship[age_ind[n],ship_ind[n]];                   //f_ship
+    log_lik[n] = normal_lpdf(y[n] | obs_mu[n], sigma_error_ship);
   }
 }
-// generated quantities {
-//   matrix[N_ages,N_ships] y_new;
-//   matrix[N_ages,N_ships] y_new_pred;
-//   matrix[N_ages, N_ships] loglik; 
-//   {
-//     for (ship in 1:N_ships) {
-//       for (t in 1:N_ages) {
-//           y_new[t, ship] = mu 
-//                          + age_re[t]
-//                          + engine_re[ship_engine_ind[ship]]
-//                          + ship_re[ship] 
-//                          + GP_engine[t,ship_engine_ind[ship]]
-//                          + GP_ship[t,ship];
-//             
-//         y_new_pred[t,ship] = normal_rng(y_new[t,ship], sigma_error_ship);
-//         loglik[t, ship] = normal_lpdf(y_new_pred[t,ship] | y_new[t,ship], sigma_error_ship);
-//       }
-//     }
-//   }
-// }
+/*generated quantities {
+  matrix[N_ages,N_ships] y_new;
+  matrix[N_ages,N_ships] y_new_pred;
+  matrix[N_ages, N_ships] loglik; 
+  {
+    for (ship in 1:N_ships) {
+      for (t in 1:N_ages) {           
+        y_new[t, ship] = mu 
+        + age_re[t]
+        + engine_re[ship_engine_ind[ship]]
+        + ship_re[ship] 
+        + GP_engine[t,ship_engine_ind[ship]]
+        + GP_ship[t,ship];
+                         
+        y_new_pred[t,ship] = normal_rng(y_new[t,ship], sigma_error_ship);
+        loglik[t, ship] = normal_lpdf(y_new_pred[t,ship] | y_new[t,ship], sigma_error_ship);
+      }
+    }
+  }
+}*/
