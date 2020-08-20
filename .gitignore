@@ -7,8 +7,8 @@ data/.Rhistory
 spline/models/**/*.*
 !spline/models/**/*.stan
 
-gaussian_process/models/**/*.*
-!gaussian_process/models/**/*.stan
+gaussianprocess/models/**/*.*
+!gaussianprocess/models/**/*.stan
 
 parametric/models/**/*.*
 !parametric/models/**/*.stan
