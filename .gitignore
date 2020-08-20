@@ -5,10 +5,13 @@ data/.Rhistory
 **/.ipynb_checkpoints
 
 spline/models/**/*.*
+spline/models/**/*
 !spline/models/**/*.stan
 
 gaussianprocess/models/**/*.*
+gaussianprocess/models/**/*
 !gaussianprocess/models/**/*.stan
 
 parametric/models/**/*.*
+parametric/models/**/*
 !parametric/models/**/*.stan
