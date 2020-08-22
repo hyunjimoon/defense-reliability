@@ -19,14 +19,18 @@ data {
 parameters {
     real mu_a_bar;
     vector[K] mu_w_bar;
-    real<lower=0> s_a; // model
-    real<lower=0> s_w; // model
-    vector[E] s_a_tilde; // model
-    vector[E] s_w_tilde; // model
+    real<lower=0> s_a[S]; // model
+    real<lower=0> s_w[S]; // model
+    vector[S] s_a_tilde; // model
+    
+    vector[S] s_w_tilde; // model
+    
     real s_a_bar;
     real s_w_bar;
     vector[E] s_a_bar_tilde; // model
+    
     vector[E] s_w_bar_tilde; // model
+    
     real<lower=0> s_Y; // model
 }
 
@@ -45,8 +49,8 @@ transformed parameters {
     }
     for (s in 1:S){
         //a[s] ~ normal(a_bar[S2F[s]], s_a)
-        a[s] = a_bar[engine[s]] + s_a * s_a_tilde[engine[s]];
-        w[s] = w_bar[engine[s]] + s_w * s_w_tilde[engine[s]];
+        a[s] = a_bar[engine[s]] + s_a[s] * s_a_tilde[s];
+        w[s] = w_bar[engine[s]] + s_w[s] * s_w_tilde[s];
     }
     
   
@@ -58,25 +62,22 @@ transformed parameters {
 model {
     mu_a_bar ~ normal(0, 1);
     mu_w_bar ~ normal(0, 1);
-    //s_a_bar ~ exponential(1);
-    //s_w_bar ~ exponential(1);
-    s_a_bar ~ gamma(4, 0.25);
-    s_w_bar ~ gamma(4, 0.25);
-    //s_a_bar ~ gamma(1, 1);
-    //s_w_bar ~ gamma(1, 1);
+    s_a_bar ~ gamma(5, 1);
+    s_w_bar ~ gamma(5, 1);
     s_a_bar_tilde ~ normal(0,1);
+    
     s_w_bar_tilde ~ normal(0,1);
 
-    //s_a ~ gamma(10,10);
-    //s_a ~ gamma(1, 1);
-    s_a ~ gamma(4,0.25);
-    //s_w ~ gamma(10,10);
-    //s_w ~ gamma(1, 1);
-    s_w ~ gamma(4, 0.25);
+
+    //s_a ~ gamma(4,1);
+    s_a ~ exponential(0.5);
+    //s_w ~ gamma(4, 1);
+    s_w ~ exponential(0.5);
     s_a_tilde ~ normal(0,1);
+    
     s_w_tilde ~ normal(0,1);
 
-    s_Y ~ exponential(1);
+    s_Y ~ exponential(0.5);
 
     Y ~ normal(mu, s_Y);
 }
@@ -85,7 +86,10 @@ generated quantities{
     for (i in 1:N) {
         log_lik[i] = normal_lpdf(Y[i]|mu[i], s_Y);
     }
-    
+    /*vector[S] ship_test;
+    for(s in 1:S){
+        ship_test[s] = s_a * s_a_tilde[engine[s]];
+    }*/
     //real y_rep[N] = normal_rng(mu, s_Y);  # randomly sampled posterior predictive distribution
 
     real y_new_pred[N_hat]; // posterior predictive sampling
