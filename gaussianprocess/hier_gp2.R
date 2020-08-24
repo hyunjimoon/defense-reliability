@@ -1,6 +1,6 @@
 library(rstan); library(cmdstanr); library(parallel); library("tidyverse")
 setwd("~/Dropbox/20_paper/failure_forecast_gp")
-
+set.seed(1954)
 .libPaths("~/Rlib")
 options(mc.cores = parallel::detectCores())
 util <- new.env()
@@ -48,16 +48,40 @@ gp_fit <- function(modelName, data){
     fit <- mod$sample(data, chains = chains, iter_warmup = 500, iter_sampling = 500,
                       parallel_chains = parallel_chains, save_warmup = FALSE)
     dir.create(delivDir)
-    dir.create("test")
     fit$save_object(file = prefit)
   }
   fit
 }
 
+div_detect <- function(stanfit){
+  partition <- util$partition_div(stanfit)
+  div_samples <- partition[[1]]
+  nondiv_samples <- partition[[2]]
+  
+  #다음 변수와  sigma_error_ship간 Pair plot으로 pathology발견?
+  #cov_engine = cov_exp_quad(ages, sigma_GP_engine, length_GP_engine);
+  #cov_ship = cov_exp_quad(ages, sigma_GP_ship, length_GP_ship);
+  
+  par(mfrow=c(1, 3))
+  plot(nondiv_samples$length_GP_engine, nondiv_samples$sigma_GP_engine, log="xy",
+       col=c_dark_trans, pch=16, cex=0.8, xlab="length_GP_engine", ylab="sigma_GP_engine")
+  points(div_samples$length_GP_engine, div_samples$sigma_GP_engine,
+         col=c_green_trans, pch=16, cex=0.8)
+  
+  plot(nondiv_samples$length_engine_mu, nondiv_samples$sigma_error_ship,
+       col=c_dark_trans, pch=16, cex=0.8, xlab="length_engine_mu", ylab="sigma_error_ship")
+  points(div_samples$length_engine_mu, div_samples$sigma_error_ship,
+         col=c_green_trans, pch=16, cex=0.8)
+  
+  plot(nondiv_samples$length_GP_engine, nondiv_samples$length_engine_mu,
+       col=c_dark_trans, pch=16, cex=0.8, xlab="length_GP_engine", ylab="length_engine_mu")
+  points(div_samples$length_GP_engine, div_samples$length_engine_mu,
+         col=c_green_trans, pch=16, cex=0.8)
+}
 #######################################################
 # Fit model with weakly-informative priors
 #######################################################
-modelName <- "hier_gp_weak"
+modelName <- "hier_gp_tw"
 #modelName <- "hier_gp_5var"
 
 scriptDir <- getwd()
@@ -77,83 +101,64 @@ y <- read.csv("data/y_count_pwr.csv", header = FALSE)[,1]
 
 data <- list(N = length(y), N_engines=N_engines,N_ships = N_ships, N_ages= N_ages, N_ages_obs = N_ages_obs, 
              ship_engine_ind =ship_engine_ind, ship_ind = ship_ind, age_ind = age_ind, y=y)
- 
 
-fit1 <- gp_fit(modelName, data)
-hier_gp1 <- fit1$summary()
-
-# fit2 <- gp_fit(modelName, data)
-# hier_gp2 <- fit2$summary()
-# yhat <- function(modelName, y){
-#   fit <- gp_fit(modelName, data)
-#   hier_gp <- fit$summary()
-# }
-rmse <- function(x, y){
+mseNplot <- function(x, y){
   yhat<- x %>%
     filter(str_detect(variable, "obs_mu")) %>%
-    pull(mean)d
+    pull(mean)
+  # yhat_fill<- hier_gp_simple %>%
+  #   filter(str_detect(variable, "y_new_pred")) %>%
+  #   pull(mean)
+  yhat_df<- data.frame(matrix(yhat)) #, nrow = 31, ncol = 99
+  yhat_df$idu <- as.numeric(row.names(yhat_df))
+  yhat_df.melt <- reshape2::melt(yhat_df, id.vars="idu")
+  names(yhat_df.melt) <- c("idu", "ship", "fail")
+  ggplot(data = yhat_df.melt, aes(x=idu, y=fail))+
+    geom_point(aes(group = ship))
   mean((y-yhat)^2)
 }
-rmse(hier_gp1, y)
-rmse(hier_gp2, y)
+
+########FORECAST - to rstan NOT NEEDED
+fit1 <- gp_fit(modelName, data)
+mse(fit1$summary(), y)
+
+### DIVERGENCE CHECK -to rstan NEEDED
+modelName <- "hier_gp_twtw"
+sf_twtw_6 <- gp_fit(modelName, data)
+rsf_twtw_6  <- read_stan_csv(sf_twtw_6$output_files())
+util$check_all_diagnostics(rsf_twtw_6)
+div_detect(rsf_twtw_6)
+
+modelName <- "twtw_6_10"
+sf_twtw_6_10 <- gp_fit(modelName, data)
+rsf_twtw_6_10  <- read_stan_csv(sf_twtw_6_10$output_files())
+util$check_all_diagnostics(rsf_twtw_6_10)
+div_detect(rsf_twtw_6_10)
+
+modelName <- "hier_gp_twtw"
+fit_twtw <- gp_fit(modelName, data)
+stanfit <- read_stan_csv(fit_twtw$output_files())
+util$check_all_diagnostics(stanfit)
+
+modelName <- "twtw_engineVar"
+sf_twtw_engineVar <- gp_fit(modelName, data)
+#forecast
+mseNplot(sf_twtw_engineVar$summary(), y)
+#divg check
+rsf_twtw_engineVar  <- read_stan_csv(sf_twtw_engineVar$output_files())
+util$check_all_diagnostics(rsf_twtw_engineVar)
+div_detect(rsf_twtw_engineVar)
 
 
 ###############0810
 #stan(file='models/hier_gp_weak/hier_gp_weak.stan', data=data, seed=5838298)
+fit <-fail_fit
 stanfit <- read_stan_csv(fit$output_files())
 util$check_all_diagnostics(stanfit)
 
 # A few extra divergences -- what's up?
 # Let's look at some marginal posteriors
-partition <- util$partition_div(stanfit)
-div_samples <- partition[[1]]
-nondiv_samples <- partition[[2]]
 
-#다음 변수와  sigma_error_ship간 Pair plot으로 pathology발견?
-#cov_engine = cov_exp_quad(ages, sigma_GP_engine, length_GP_engine);
-#cov_ship = cov_exp_quad(ages, sigma_GP_ship, length_GP_ship);
-
-par(mfrow=c(1, 3))
-plot(nondiv_samples$length_GP_engine, nondiv_samples$sigma_GP_engine, log="xy",
-     col=c_dark_trans, pch=16, cex=0.8, xlab="length_GP_engine", ylab="sigma_GP_engine")
-points(div_samples$length_GP_engine, div_samples$sigma_GP_engine,
-       col=c_green_trans, pch=16, cex=0.8)
-
-plot(nondiv_samples$length_GP_engine, nondiv_samples$sigma_error_ship,
-     col=c_dark_trans, pch=16, cex=0.8, xlab="length_GP_engine", ylab="sigma_error_ship")
-points(div_samples$length_GP_engine, div_samples$sigma_error_ship,
-       col=c_green_trans, pch=16, cex=0.8)
-
-plot(nondiv_samples$sigma_GP_engine, nondiv_samples$sigma_error_ship,
-     col=c_dark_trans, pch=16, cex=0.8, xlab="sigma_GP_engine", ylab="sigma_error_ship")
-points(div_samples$sigma_GP_engine, div_samples$sigma_error_ship,
-       col=c_green_trans, pch=16, cex=0.8)
-
-
-#hier_gp <- gp_summary("hier_gp", data)
-hier_gp <- fit$summary()
-
-yhat<- hier_gp %>%
-  filter(str_detect(variable, "y_new_pred")) %>%
-  pull(mean)
-yhat<- data.frame(matrix(yhat, nrow = 31, ncol = 99))
-yhat$idu <- as.numeric(row.names(yhat))
-yhat.melt <- reshape2::melt(yhat, id.vars="idu")
-names(yhat.melt) <- c("idu", "ship", "fail")
-ggplot(data = yhat.melt, aes(x=idu, y=fail))+ 
-  geom_point(aes(group = ship))
-
-
-yhat2_df<- data.frame(matrix(yhat2, nrow = 31, ncol = 99))
-yhat2$idu <- as.numeric(row.names(yhat2_df))
-yhat2.melt <- reshape2::melt(yhat2, id.vars="idu")
-names(yhat2.melt) <- c("idu", "ship", "fail")
-ggplot(data = yhat2.melt, aes(x=idu, y=fail))+ 
-  geom_point(aes(group = ship))
-
-
-
-#TODO: compare two, ask what count is
 
 # diagnostics
 check_all_diagnostics(fit)
