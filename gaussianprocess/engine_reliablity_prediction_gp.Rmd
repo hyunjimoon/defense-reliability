@@ -594,8 +594,9 @@ This gives smaller MSE so we choose this model.
 
 
 # Conclusion
-
-Finally, we gave *normal* prior to `length_engine_scale`,`length_ship_scale`, `length_engine_shape`, `length_ship_shape` with mean gained from *lognormal* prior.
+- We had no domain knowledge on trend parameters `length_GP_engine`, and therefore used hyperparameters.
+- hyperparameters `length_engine_scale`,`length_ship_scale`, `length_engine_shape`, `length_ship_shape` were calibrated based on divergence and pairplots. *normal* priors with mean learned from weak *lognormal* prior were given.
+- model structures were modified with and 
 Also to prevent uneven distribution of parameter, we reparametrized `length_GP_engine`. We gave smaller prior on `sigma_error_ship` to prevent underfitting. This model gave the smallest MSE.
 
 Further developement are as follows:
@@ -604,7 +605,9 @@ Further developement are as follows:
 2. Bayesian model averaging between different model structure (splines & GP) and additional features that could affect engine failure such as ship size or operation time. 
 3. latent Gaussian model with Poisson likelihood could be used and as additional data are expected, approximation model such as adjoint-differentiation(Margossian, 2020) could be considered.
 
+# References
 
+Trangucci (2017). Hierarchical Gaussian processes in Stan
 
 Margossian, C. C., Vehtari, A., Simpson, D., & Agrawal, R. (2020). Hamiltonian Monte Carlo using an adjoint-differentiated Laplace approximation. arXiv preprint arXiv:2004.12550.
 
