@@ -9,7 +9,10 @@ data {
   int<lower=1> age_ind[N]; 
   vector[N] y; 
   real<lower=0> hp_scale;
-  
+  real<lower=0> emp_le_shape;
+  real<lower=0> emp_le_scale;
+  real<lower=0> emp_ls_shape;
+  real<lower=0> emp_ls_scale;
 }
 
 transformed data {
@@ -112,10 +115,10 @@ model {
   engine_std ~ normal(0, 1);
   mu ~ normal(.5, .5);
   tot_var ~ normal(0,1);
-  length_engine_scale ~ lognormal(0, hp_scale);
-  length_ship_scale ~ lognormal(0, hp_scale);
-  length_engine_shape ~  lognormal(0, hp_scale);
-  length_ship_shape ~  lognormal(0, hp_scale);
+  length_engine_shape ~  normal(emp_le_shape, hp_scale);
+  length_engine_scale ~ normal(emp_le_scale, hp_scale);
+  length_ship_shape ~  normal(emp_ls_shape, hp_scale);
+  length_ship_scale ~ normal(emp_ls_scale, hp_scale);
   length_GP_engine_s ~ weibull(length_engine_shape,1);
   length_GP_ship_s ~ weibull(length_ship_shape,1);
 }

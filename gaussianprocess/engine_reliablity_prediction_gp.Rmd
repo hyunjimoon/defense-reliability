@@ -328,31 +328,21 @@ We have started from [this](https://github.com/stan-dev/stancon_talks/tree/927ac
 # 1. domain knowledge
 
 First modifications were to simplify the model.
-- remove prop prior
-- unify trend from long and short trend
-- parameterize the `length_engine_ship` prior parameters
+
+1) remove prop prior
+2) unify trend from long and short trend
+3) parameterize the `length_engine_ship` prior parameters
+
 $\alpha$ and $\rho$ parameters could tuned with algebraic solvers match one's domain knowledge (such as INLA example from Talts, 2018 or Mike Bentancourt's [casestudy](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html)) but as we did not have domain knowledge on `length_engine_ship` we decided to give prior to its scale and location parameter.
 
 > length_GP_engine ~ weibull(length_engine_shape,length_engine_scale); 
   length_GP_ship ~ weibull(length_ship_shape,length_ship_scale);
 
-Below is the full code.
+`gp_hp.stan` is our baseline code.
 
-```{r}
-writeLines(readLines('models/gp_hp/gp_hp.stan'))
-```
-
-# 2. prior pushforward check
-
-## 2.1. divergence
-
-> length_GP_engine ~ weibull(30,6); // value?
-  length_GP_ship ~ weibull(30,6);
+# 2. pre-predictive check
   
-> length_GP_engine ~ weibull(length_engine_shape,length_engine_scale); // effect last for 8year -> 6 year 
-  length_GP_ship ~ weibull(length_ship_shape,length_ship_scale);
-  
-Prametrizing prevented the need for our domain knowledge but instead, we had to set reasonable prior for `length_GP_engine` and `length_GP_ship`. First attemps were just to experiment with the given parmameters; which ended up with divergences.
+Prametrizing prevented the need for our domain knowledge but instead, we had to set reasonable prior for `length_GP_engine` and `length_GP_ship`. First attemps were just to experiment with the given parmameters in the orginal model; which ended up with divergences.
 > length_engine_shape ~  normal(30, 1);
   length_engine_scale ~ normal(8, 1);
   length_ship_shape ~  normal(30, 1);
@@ -365,67 +355,11 @@ rsf_hp <- read_stan_csv(sf_hp$output_files())
 util$check_all_diagnostics(rsf_hp)
 div_detect(rsf_hp)
 ```
-Two modification: give smaller prior to `length_GP_engine` and reparameterize.
 
-```{r}
-emp_le_shape <-sf_hp$summary("length_engine_shape")%>% pull(mean)
-emp_le_scale <-sf_hp$summary("length_engine_scale")%>% pull(mean)
-emp_ls_shape <-sf_hp$summary("length_ship_shape")%>% pull(mean)
-emp_ls_scale <-sf_hp$summary("length_ship_scale")%>% pull(mean)
-print(c(emp_le_shape, emp_le_scale, emp_ls_shape,emp_ls_scale))
-```
-As can be seen from the result, the value does not change much. This might becase, data, due to security issues, are scaled and therfore have rather weak impact on the prior update. Therefore, to investigate the parameters' true range, weak priors are given. We chose $lognormal(0,1)$.
+We observed two problems from the results.
 
-> length_engine_scale ~ lognormal(0, 1);
-  length_ship_scale ~ lognormal(0, 1);
-  length_engine_shape ~  lognormal(0, 1);
-  length_ship_shape ~  lognormal(0, 1);
-
-```{r}
-modelName <- "gp_hp_lognorm"
-data$hp_scale <- 3
-sf_hp_ln <- gp_fit(modelName, data)
-rsf_hp_ln <- read_stan_csv(sf_hp_ln$output_files())
-util$check_all_diagnostics(rsf_hp_ln)
-div_detect(rsf_hp_ln)
-emp_le_shape <-sf_hp_ln$summary("length_engine_shape")%>% pull(mean)
-emp_le_scale <-sf_hp_ln$summary("length_engine_scale")%>% pull(mean)
-emp_ls_shape <-sf_hp_ln$summary("length_ship_shape")%>% pull(mean)
-emp_ls_scale <-sf_hp_ln$summary("length_ship_scale")%>% pull(mean)
-print(c(emp_le_shape, emp_le_scale, emp_ls_shape,emp_ls_scale))
-```
-
-we decided to restrict the range of `length_engine_scale` based on the empirical values.
-
-```{r}
-modelName <- "gp_hp_norm"
-data$hp_scale <- 1
-data$emp_le_shape <- emp_le_shape
-data$emp_le_scale <- emp_le_scale
-data$emp_ls_shape <- emp_ls_shape
-data$emp_ls_scale <- emp_ls_scale
-sf_hp_n <- gp_fit(modelName, data)
-rsf_hp_n <- read_stan_csv(sf_hp_n$output_files())
-util$check_all_diagnostics(rsf_hp_n)
-div_detect(rsf_hp_n)
-emp_le_shape_2 <-sf_hp_n$summary("length_engine_shape")%>% pull(mean)
-emp_le_scale_2 <-sf_hp_n$summary("length_engine_scale")%>% pull(mean)
-emp_ls_shape_2 <-sf_hp_n$summary("length_ship_shape")%>% pull(mean)
-emp_ls_scale_2 <-sf_hp_n$summary("length_ship_scale")%>% pull(mean)
-print(c(emp_le_shape_2, emp_le_scale_2, emp_ls_shape_2,emp_ls_scale_2))
-```
-No divergence. We set this value as our prior parameters.
-
-```{r}
-data$emp_le_shape <- emp_le_shape_2
-data$emp_le_scale <- emp_le_scale_2
-data$emp_ls_shape <- emp_ls_shape_2
-data$emp_ls_scale <- emp_ls_scale_2
-```
-
-## 2.2. correlated samples and uneven density
-
-When plotted, `length_GP_engine` and `length_engine_scale` showed ununiform samples which can be problematic, so we decided to reparameterize `length_GP_engine`.
+## 2.1. correlated and uneven density
+When plotted, `length_GP_engine` and `length_engine_scale` showed ununiform samples which can be problematic while sampling [discourse discussion](https://discourse.mc-stan.org/t/does-uneven-pairsplot-density-indicate-reparameterization/17581/2), so we decided to reparameterize `length_GP_engine`.
 
 ```{r}
 partition <- util$partition_div(rsf_hp_n)
@@ -450,24 +384,20 @@ $$\rho_{engine} = \rho_{engine}^s * \sigma_{\rho}$$
 
 This is because  $Y  \sim \text{Weibull}(\alpha,\sigma)$ $\Rightarrow$ $kY \sim \text{Weibull}(\alpha,k\sigma)$
 
-
-
-> length_GP_engine ~ weibull(length_engine_shape,length_engine_scale)
+```{stan}
+from
+  length_GP_engine ~ weibull(length_engine_shape,length_engine_scale)
   length_GP_ship ~ weibull(length_engine_ship,length_engine_ship)
-  
+
 to
 
-> real length_GP_engine = length_engine_scale * length_GP_engine_s;
+  real length_GP_engine = length_engine_scale * length_GP_engine_s;
   real length_GP_ship = length_ship_scale * length_GP_ship_s;
   length_GP_engine_s ~ weibull(length_engine_shape,1);
   length_GP_ship_s ~ weibull(length_ship_shape,1);
 
-
-final model is
-
-```{r}
-writeLines(readLines('models/gp_reparam/gp_reparam.stan'))
 ```
+
 
 ```{r}
 modelName <- "gp_reparam"
@@ -489,42 +419,87 @@ points(div_samples$length_engine_scale, div_samples$length_GP_engine_s,
         col=c_green_trans, pch=16, cex=0.8)
 
 ```
+The reparameterization has led to more even plot.
 
-It shows uniform sample distribution and there's no linear relationship between two parameter. 
+## 2.2. identification problems
+As can be seen from the result, the value does not change much from the given prior values, which could indicate identification issues (refer to Bentancourt's [identity crisis](https://betanalpha.github.io/assets/case_studies/identifiability.html)). This might be due to the fact that data are scaled for security issues and have relatively weak impact on the prior update@. Therefore, to investigate the parameters' true range, weak priors are given. We chose $lognormal(0,3)$.
 
-# 3.prior predictive check
+```{stan}
+length_engine_scale ~ lognormal(0, 3);
+length_ship_scale ~ lognormal(0, 3);
+length_engine_shape ~  lognormal(0, 3);
+length_ship_shape ~  lognormal(0, 3);
+```
 
-## 3.1 Different $sigma$ for each engine
+```{r}
+modelName <- "gp_hp_lognorm"
+data$hp_scale <- 3
+sf_hp_ln <- gp_fit(modelName, data)
+rsf_hp_ln <- read_stan_csv(sf_hp_ln$output_files())
+util$check_all_diagnostics(rsf_hp_ln)
+div_detect(rsf_hp_ln)
+emp_le_shape <-sf_hp_ln$summary("length_engine_shape")%>% pull(mean)
+emp_le_scale <-sf_hp_ln$summary("length_engine_scale")%>% pull(mean)
+emp_ls_shape <-sf_hp_ln$summary("length_ship_shape")%>% pull(mean)
+emp_ls_scale <-sf_hp_ln$summary("length_ship_scale")%>% pull(mean)
+print(c(emp_le_shape, emp_le_scale, emp_ls_shape,emp_ls_scale))
+```
 
-We plotted predicted values of $y$ using above reparametrized model, but data seems different to the predicted values.
+Restricting the range of `length_engine_*` and `length_ship_*` is needed to address divergence problems. We decided to plug in the empirical values.
+
+```{r}
+modelName <- "gp_hp_norm"
+data$hp_scale <- 1
+data$emp_le_shape <- emp_le_shape
+data$emp_le_scale <- emp_le_scale
+data$emp_ls_shape <- emp_ls_shape
+data$emp_ls_scale <- emp_ls_scale
+sf_hp_n <- gp_fit(modelName, data)
+rsf_hp_n <- read_stan_csv(sf_hp_n$output_files())
+util$check_all_diagnostics(rsf_hp_n)
+div_detect(rsf_hp_n)
+emp_le_shape_2 <-sf_hp_n$summary("length_engine_shape")%>% pull(mean)
+emp_le_scale_2 <-sf_hp_n$summary("length_engine_scale")%>% pull(mean)
+emp_ls_shape_2 <-sf_hp_n$summary("length_ship_shape")%>% pull(mean)
+emp_ls_scale_2 <-sf_hp_n$summary("length_ship_scale")%>% pull(mean)
+print(c(emp_le_shape_2, emp_le_scale_2, emp_ls_shape_2,emp_ls_scale_2))
+```
+As this resulted in less divergence, we set this value as our prior parameters for further experiment.
+
+```{r}
+data$emp_le_shape <- emp_le_shape_2
+data$emp_le_scale <- emp_le_scale_2
+data$emp_ls_shape <- emp_ls_shape_2
+data$emp_ls_scale <- emp_ls_scale_2
+```
+
+# 3. predictive checks
+## 3.1 Different $\sigma$ for each engine
+
+From the plot, our $\tilde{y}$ seems to be different from y, real data. Below is how we updated the model iteratively to make our $\tilde{y}$ closer to y.
 
 ```{r}
 sf_reparam_sm <- sf_reparam$summary()
-
-mseNplot(sf_reparam_sm,y)
+mse_res_reparam <- mseNplot(sf_reparam_sm,y)
+mse_res_reparam
 ```
 
-For each lifetime, standard deviation for each engine looks quite different. For example, engine 4 and 5 shows large variance while engine 3 shows small variance of given data.
-
-> real sigma_error_ship
-
-to
-
-> real sigma_error_ship[5]
-
-
+For each lifetime, standard deviation for each engine looks quite different. For example, engine 4 and 5 shows large variance while engine 3 shows small variance of given data. We attempted to give different errors to each engine. 
 $$y_{t,j} \sim Normal(\mu_{t,j},\sigma_{k[j]})$$
 
-> for (i in 1:5)
-    sigma_error_ship[i] = sqrt(vars[i + 5]);
-    
-> y[n] ~ normal(obs_mu[n], sigma_error_ship[ship_engine_ind[ship_ind[n]]])
+```{stan}
+transformed parameters {
+  real sigma_error_ship -> real sigma_error_ship[5]
+}
 
-final model is
-
-```{r}
-writeLines(readLines('models/gp_reparam_5var/gp_reparam_5var.stan'))
+model{
+  for (i in 1:5)
+      sigma_error_ship[i] = sqrt(vars[i + 5]);
+      
+  y[n] ~ normal(obs_mu[n], sigma_error_ship[ship_engine_ind[ship_ind[n]]])
+}
 ```
+
 
 ```{r}
 modelName <- "gp_reparam_5var"
@@ -539,19 +514,18 @@ sf_reparam_5var_sm<-sf_reparam_5var$summary()
 mseNplot(sf_reparam_5var_sm,y)
 ```
 
-But mse value didn't actually decrease, so we decided to use same variance for each engine. 
+As mse value didn't decrease, we decided to use the same variance for each engine. 
 
 ## 3.2 Underfitting
 
-Even we gave different $sigma$ for each engine, the variance looks quite larger than fitted values. (i.e. underfitting) So we tried to fix this problem with two different approach.
+We approached the underestimated $\tilde{y}$ variance problem in two different ways.
 
-1) Simply increase sigma_error_ship (simple comparison between fitted vs observed)
+1) Increase `sigma_error_ship` 
+@is decreasing `sigma_error_ship` a better approach when underfitting, i.e. smaller variance is observed compared to the real data?
+```{stan}
+sigma_error_ship ~ normal(0,1) -> sigma_error_ship ~ normal(1.5,1)
+```
 
-> sigma_error_ship ~ normal(0,1) 
-
-to
-
-> sigma_error_ship ~ normal(1.5,1)
 
 ```{r}
 modelName <- "gp_underfit_1"
@@ -563,19 +537,19 @@ div_detect(rsf_underfit_1)
 
 sf_underfit_1_sm<-sf_underfit_1$summary()
 
-mseNplot(sf_underfit_1_sm,y)
+mse_res_underfit_1 <- mseNplot(sf_underfit_1_sm,y)
+mse_res_underfit_1
 ```
 
-MSE for this model is 0.2559 where original(`sigma_error_ship ~ normal(0.5,1)`) was 0.2456. MSE didn't decrease by increasing `sigma_error ship`.
+MSE for this model is `r mse_res_underfit_1` where original(`sigma_error_ship ~ normal(0.5,1)`) was `r mse_res_reparam`. MSE didn't decrease by increasing `sigma_error ship`.
 
 
-2) Give small `sigma_error_ship` prior to prevent underfitting 
+2) Give weaker `sigma_error_ship` prior 
 
-> sigma_error_ship ~ normal(0,1) 
+```{stan}
+sigma_error_ship ~ normal(0,1) ->  sigma_error_ship ~ normal(0,0.5)
+```
 
-to
-
-> sigma_error_ship ~ normal(0,1)
 
 ```{r}
 modelName <- "gp_underfit_2"

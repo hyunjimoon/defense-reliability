@@ -110,10 +110,10 @@ model {
   engine_std ~ normal(0, 1);
   mu ~ normal(.5, .5);
   tot_var ~ normal(0,1);
-  length_engine_scale ~ lognormal(0, hp_scale);
-  length_ship_scale ~ lognormal(0, hp_scale);
-  length_engine_shape ~  lognormal(0, hp_scale);
-  length_ship_shape ~  lognormal(0, hp_scale);
+  length_engine_shape ~  normal(30, 1);
+  length_engine_scale ~ normal(8, 1);
+  length_ship_shape ~  normal(30, 1);
+  length_ship_scale ~ normal(3, 1);
   length_GP_engine_s ~ weibull(length_engine_shape,1);
   length_GP_ship_s ~ weibull(length_ship_shape,1);
 }
