@@ -114,7 +114,6 @@ model {
 
 generated quantities {
   vector[N] obs_mu;
-  vector[N] log_lik;
   // matrix[N_ages,N_ships] y_new;
   // matrix[N_ages,N_ships] y_new_pred;
   for (n in 1:N) {
@@ -123,8 +122,7 @@ generated quantities {
               + engine_re[ship_engine_ind[ship_ind[n]]] 
               + ship_re[ship_ind[n]]   
               + GP_engine[age_ind[n],ship_engine_ind[ship_ind[n]]] //f_engine 
-              + GP_ship[age_ind[n],ship_ind[n]];                   //f_ship          
-    log_lik[n] = normal_lpdf(y[n] | obs_mu[n], sigma_error_ship[ship_engine_ind[ship_ind[n]]]);
+              + GP_ship[age_ind[n],ship_ind[n]];                   //f_ship
   }
   // for (ship in 1:N_ships) {
   //     for (t in 1:N_ages) {
