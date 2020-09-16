@@ -1,5 +1,5 @@
 data {
-    int <lower = 1> K; // 11
+    int <lower = 1> K; // number of basis functions
     int <lower = 1> N; // number of total values(653)
     int <lower = 1> T; // time length of data(31)
     int <lower = 1> S; // number of ships (99)
@@ -17,16 +17,17 @@ data {
 }
 
 parameters {
-    real mu_a_bar;
-    vector[K] mu_w_bar;
-    real<lower=0> s_a[S]; // model
-    real<lower=0> s_w[S]; // model
+    real mu_a_bar; // model
+    vector[K] mu_w_bar; // model
+    real<lower=0> s_a; // model
+    real<lower=0> s_w; // model
     vector[S] s_a_tilde; // model
     
     vector[S] s_w_tilde; // model
     
-    real s_a_bar;
-    real s_w_bar;
+    real<lower = 0> s_a_bar; // model
+    real<lower = 0> s_w_bar; // model
+    
     vector[E] s_a_bar_tilde; // model
     
     vector[E] s_w_bar_tilde; // model
@@ -49,9 +50,10 @@ transformed parameters {
     }
     for (s in 1:S){
         //a[s] ~ normal(a_bar[S2F[s]], s_a)
-        a[s] = a_bar[engine[s]] + s_a[s] * s_a_tilde[s];
-        w[s] = w_bar[engine[s]] + s_w[s] * s_w_tilde[s];
+        a[s] = a_bar[engine[s]] + s_a * s_a_tilde[s];
+        w[s] = w_bar[engine[s]] + s_w * s_w_tilde[s];
     }
+    
     
   
     for (n in 1: N){
@@ -60,27 +62,33 @@ transformed parameters {
 }
 
 model {
+
     mu_a_bar ~ normal(0, 1);
     mu_w_bar ~ normal(0, 1);
-    s_a_bar ~ gamma(5, 1);
-    s_w_bar ~ gamma(5, 1);
-    s_a_bar_tilde ~ normal(0,1);
+
+    s_a_bar ~ normal(0, 2);
+    s_w_bar ~ gamma(2, 1.7);
+
+    s_a_bar_tilde ~ std_normal(); // normal(0,1)
+    s_w_bar_tilde ~ std_normal();
+
+
+    //s_a ~ exponential(0.5);
+    s_a ~ gamma(5, 2);
+    //s_w ~ exponential(0.5);
+    s_w ~ gamma(5, 2);
     
-    s_w_bar_tilde ~ normal(0,1);
+    s_a_tilde ~ std_normal(); // normal(0,1)
+    s_w_tilde ~ std_normal();    
 
-
-    //s_a ~ gamma(4,1);
-    s_a ~ exponential(0.5);
-    //s_w ~ gamma(4, 1);
-    s_w ~ exponential(0.5);
-    s_a_tilde ~ normal(0,1);
+    s_Y ~ exponential(1); // exponential(4)
     
-    s_w_tilde ~ normal(0,1);
-
-    s_Y ~ exponential(0.5);
-
     Y ~ normal(mu, s_Y);
+    // mu = a + Bw
+    //    = a_bar + s_a * s_a_tilde + B(w_bar + s_w * s_w_tilde)
+    //    = mu_a_bar + s_a_bar * s_a_bar_tilde + s_a * s_a_tilde + B(mu_w_bar + s_w_bar * s_w_bar_tilde + s_w * s_w_tilde)
 }
+
 generated quantities{
     vector[N] log_lik;
     for (i in 1:N) {
