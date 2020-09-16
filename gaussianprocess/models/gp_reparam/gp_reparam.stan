@@ -8,8 +8,6 @@ data {
   int<lower=1,upper=99> ship_ind[N];
   int<lower=1> age_ind[N]; 
   vector[N] y; 
-  real<lower=0> hp_scale;
-  
 }
 
 transformed data {
