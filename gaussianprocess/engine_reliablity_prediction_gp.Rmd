@@ -386,7 +386,7 @@ $$\rho_{engine} = \rho_{engine}^s * \sigma_{\rho}$$
 
 This is because  $Y  \sim \text{Weibull}(\alpha,\sigma)$ $\Rightarrow$ $kY \sim \text{Weibull}(\alpha,k\sigma)$
 
-```{stan}
+```{stan, eval=F, output.var="md"}
 from
   length_GP_engine ~ weibull(length_engine_shape,length_engine_scale)
   length_GP_ship ~ weibull(length_engine_ship,length_engine_ship)
@@ -429,7 +429,7 @@ The reparameterization has led to more even plot.
 ## 2.2. identification problems
 As can be seen from the result, the value does not change much from the given prior values, which could indicate identification issues (refer to Bentancourt's [identity crisis](https://betanalpha.github.io/assets/case_studies/identifiability.html)). This might be due to the fact that data are scaled for security issues and have relatively weak impact on the prior update@. Therefore, to investigate the parameters' true range, weak priors are given. We chose $lognormal(0,3)$.
 
-```{stan}
+```{stan, eval=F, output.var="md"}
 length_engine_scale ~ lognormal(0, 3);
 length_ship_scale ~ lognormal(0, 3);
 length_engine_shape ~  lognormal(0, 3);
@@ -498,7 +498,7 @@ mse_res_reparam
 For each lifetime, standard deviation for each engine looks quite different. For example, engine 4 and 5 shows large variance while engine 3 shows small variance of given data. We attempted to give different errors to each engine. 
 $$y_{t,j} \sim Normal(\mu_{t,j},\sigma_{k[j]})$$
 
-```{stan}
+```{stan, eval=F, output.var="md"}
 transformed parameters {
   real sigma_error_ship -> real sigma_error_ship[5]
 }
@@ -538,7 +538,7 @@ We approached the underestimated $\tilde{y}$ variance problem in two different w
 
 The variance of  $\tilde{y}$  looks quite larger than fitted values(i.e. underfitting). So we simply gave larger value of `sigma_error_ship` prior@.
 
-```{stan}
+```{stan, eval=F, output.var="md"}
 sigma_error_ship ~ normal(0,1) -> sigma_error_ship ~ normal(1.5,1)
 ```
 
@@ -567,7 +567,7 @@ MSE for this model is `r mse_res_underfit_1` where original(`sigma_error_ship ~ 
 
 Since prior of `sigma_error_ship` is half normal, giving larger variance is equivalent to smaller expected value of half normal prior@. 
 
-```{stan}
+```{stan, eval=F, output.var="md"}
 sigma_error_ship ~ normal(0,1) ->  sigma_error_ship ~ normal(0,3)
 ```
 
