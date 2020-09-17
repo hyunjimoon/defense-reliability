@@ -1,9 +1,9 @@
 functions{
-    real failure_form(real shape, real age){
-        return (pow(exp(shape), age) - 1)/(exp(shape) - 1);
+    real failure_form(real shape, real scale, real age){
+    
+        return fmin((shape/scale) * pow(age/scale, shape-1) * exp(-pow(age/scale, shape)), 2);
     } 
 }
-
 data {
     int N;
     real complexity;
@@ -14,17 +14,19 @@ data {
 }
 
 generated quantities{
-    real<lower=1> phi = normal_rng(10, 5);
-    real<lower=1> rho = normal_rng(5, 3);
-    real alpha = normal_rng(1.5, 1);
-    real beta = normal_rng(0, 0.5);
-    real gamma = normal_rng(0, 1);
-    real delta = normal_rng(0, 0.5);
-    real eta = normal_rng(0, 1);
+    real<lower=0> alpha = lognormal_rng(0, 0.5);
+    real<lower=0> beta = fabs(normal_rng(1.5, 0.3));
+    real<lower=0> gamma = fabs(normal_rng(4, 1.5));
+    real<lower=0> delta = fabs(normal_rng(1.3, 0.3));
+    
+    real epsilon = normal_rng(1.5, 1);
+    real zeta = normal_rng(0.5, 0.5);
+    real eta = normal_rng(1.5, 1);
+    real theta = normal_rng(0.5, 0.5);
 
-    real early = complexity * alpha + beta * log(relative_displacement);
-    real wear = complexity * engine_count * gamma + delta * log(relative_displacement);
-    real lambda = early * failure_form(phi, -age+1) + wear * failure_form(rho, age) + eta;
+    real early = complexity * epsilon + zeta * log(relative_displacement);
+    real wear = complexity * engine_count * eta + theta * log(relative_displacement);
+    real lambda = early * failure_form(alpha, beta, age) + wear * failure_form(gamma, delta, age);
     int y[N];
     for(n in 1:N){
         y[n] = poisson_rng(exp(lambda));

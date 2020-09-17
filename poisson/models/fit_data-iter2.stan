@@ -1,6 +1,7 @@
 functions{
-    real failure_form(real shape, real age){
-        return (pow(exp(shape), age) - 1)/(exp(shape) - 1);
+    real failure_form(real shape, real scale, real age){
+    
+        return fmin((shape/scale) * pow(age/scale, shape-1) * exp(-pow(age/scale, shape)), 2);
     } 
 }
 
@@ -15,32 +16,36 @@ data {
 }
 
 parameters {
-    real<lower=1> phi;
-    real<lower=1> rho;
-    real alpha;
-    real beta;
-    real gamma;
-    real delta;
+    real<lower=0> alpha;
+    real<lower=0> beta;
+    real<lower=0> gamma;
+    real<lower=0> delta;
+
+    real epsilon;
+    real zeta;
     real eta;
+    real theta;
 }
 
 transformed parameters {
     real early;
     real wear;
     real lambda;
-    early = complexity * alpha + beta * log(relative_displacement);
-    wear = complexity * engine_count * gamma + delta * log(relative_displacement);
-    lambda = early * failure_form(phi, -age+1) + wear * failure_form(rho, age) + eta;
+    early = complexity * epsilon + zeta * log(relative_displacement);
+    wear = complexity * engine_count * eta + theta * log(relative_displacement);
+    lambda = early * failure_form(alpha, beta, age) + wear * failure_form(gamma, delta, age);
 }
 
 model {
-    phi ~ normal(10, 5);
-    rho ~ normal(5, 3);
-    alpha ~ normal(1.5, 1);
-    beta ~ normal(0, 0.5);
-    gamma ~ normal(0, 1);
-    delta ~ normal(0, 0.5);
-    eta ~ normal(0, 1);
+    alpha ~ lognormal(0, 0.5);
+    beta ~ normal(1.5, 0.3);
+    gamma ~ normal(4, 1.5);
+    delta ~ normal(1.5, 0.3);
+    
+    epsilon ~ normal(1.5, 1);
+    zeta ~ normal(0.5, 0.5);
+    eta ~ normal(1.5, 1);
+    theta ~ normal(0.5, 0.5);
     
     y ~ poisson(exp(lambda));
 }

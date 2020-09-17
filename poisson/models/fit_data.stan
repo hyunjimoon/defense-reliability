@@ -1,6 +1,6 @@
 functions{
-    real failure_form(real phi, real age){
-        return (pow(exp(phi), age) - 1)/(exp(phi) - 1);
+    real failure_form(real shape, real age){
+        return (pow(exp(shape), age) - 1)/(exp(shape) - 1);
     } 
 }
 
@@ -16,6 +16,7 @@ data {
 
 parameters {
     real<lower=1> phi;
+    real<lower=1> rho;
     real alpha;
     real beta;
     real gamma;
@@ -29,11 +30,12 @@ transformed parameters {
     real lambda;
     early = complexity * alpha + beta * log(relative_displacement);
     wear = complexity * engine_count * gamma + delta * log(relative_displacement);
-    lambda = early * failure_form(phi, -age + 1) + wear * failure_form(phi, age) + eta;
+    lambda = early * failure_form(phi, -age+1) + wear * failure_form(rho, age) + eta;
 }
 
 model {
     phi ~ normal(10, 5);
+    rho ~ normal(5, 3);
     alpha ~ normal(1.5, 1);
     beta ~ normal(0, 0.5);
     gamma ~ normal(0, 1);
