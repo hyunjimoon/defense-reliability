@@ -29,11 +29,11 @@ transformed parameters {
     real lambda;
     early = complexity * alpha + beta * log(relative_displacement);
     wear = complexity * engine_count * gamma + delta * log(relative_displacement);
-    lambda = early * failure_form(phi, age) + wear * failure_form(phi, -age+1) + eta;
+    lambda = early * failure_form(phi, -age + 1) + wear * failure_form(phi, age) + eta;
 }
 
 model {
-    phi ~ normal(5, 2);
+    phi ~ normal(10, 5);
     alpha ~ normal(1.5, 1);
     beta ~ normal(0, 0.5);
     gamma ~ normal(0, 1);
