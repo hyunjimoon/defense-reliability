@@ -586,10 +586,12 @@ MSE for this model is `r mse_res_underfit_1` where original(`sigma_error_ship ~ 
 
 2) Smaller value of `sigma_error_ship` 
 
-Since prior of `sigma_error_ship` is half normal, giving larger variance is equivalent to smaller expected value of half normal prior@. 
+To prevent underfitting, we want latent variable $\mu$ to fit better to observed data $y$. So we decided to give smaller prior for `sigma_error_ship`. ($\because y \sim N(\mu, \sigma_{error\ ship})$)@
+
+Since prior of `sigma_error_ship` is half normal, giving smaller variance is equivalent to smaller expected value of half normal prior@. 
 
 ```{stan, eval=F, output.var="md"}
-sigma_error_ship ~ normal(0,1) ->  sigma_error_ship ~ normal(0,3)
+sigma_error_ship ~ normal(0,1) ->  sigma_error_ship ~ normal(0,0.1)
 ```
 
 
@@ -610,8 +612,7 @@ mse_res_underfit_2 <- mseNplot(sf_underfit_2_sm,y)
 mse_res_underfit_2
 ```
 
-This gives smaller MSE so we choose this model.
-
+MSE decreased, so we decided to use smaller prior on `sigma_error_ship`.
 
 # Conclusion
 - We had no domain knowledge on trend parameters `length_GP_engine`, and therefore used hyperparameters.

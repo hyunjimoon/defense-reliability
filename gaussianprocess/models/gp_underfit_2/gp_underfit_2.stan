@@ -120,7 +120,7 @@ model {
   length_ship_scale ~ normal(emp_ls_scale, hp_scale);
   length_GP_engine_s ~ weibull(length_engine_shape,1);
   length_GP_ship_s ~ weibull(length_ship_shape,1);
-  sigma_error_ship ~ normal(0,3);
+  sigma_error_ship ~ normal(0,0.1);
 }
 
 generated quantities {
