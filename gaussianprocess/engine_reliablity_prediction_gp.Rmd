@@ -537,7 +537,7 @@ model{
 modelName <- "gp_hp_n_5var"
 
 sf_gp_hp_n_5var <- gp_fit(modelName, data)
-rsf_gp_hp_n_5var <- read_stan_csv(sf_gp_hp_n_5varoutput_files())
+rsf_gp_hp_n_5var <- read_stan_csv(sf_gp_hp_n_5var$output_files()) 
 ```
 ```{r}
 util$check_all_diagnostics(rsf_gp_hp_n_5var)
