@@ -311,7 +311,7 @@ mseNplot <- function(x, y){
   }
   
   par(mfrow=c(1,1))
-  plot(1, type="n",xlim=c(0,31),ylim=c(-3,4),xlab="age",ylab="scaled failure time")
+  plot(1, type="n",xlim=c(0,31),ylim=c(-3,4),xlab="age",ylab="scaled failure count")
   for (n in 1:653){
     points(age_ind[n],y[n],col="black",pch=16)
     points(age_ind[n],y_hat[n],col="red")
@@ -511,9 +511,9 @@ data$emp_ls_scale <- emp_ls_scale_2
 From the plot, our $\tilde{y}$ seems to be different from y, real data. Below is how we updated the model iteratively to make our $\tilde{y}$ closer to y.
 
 ```{r}
-sf_reparam_sm <- sf_reparam$summary()
-mse_res_reparam <- mseNplot(sf_reparam_sm,y)
-mse_res_reparam
+sf_hp_n_sm <- sf_hp_n$summary()
+mse_hp_n <- mseNplot(sf_hp_n_sm,y)
+mse_hp_n
 ```
 
 For each lifetime, standard deviation for each engine looks quite different. For example, engine 4 and 5 shows large variance while engine 3 shows small variance of given data. We attempted to give different errors to each engine. 
@@ -534,82 +534,68 @@ model{
 
 
 ```{r message=FALSE, results='hide'}
-modelName <- "gp_reparam_5var"
+modelName <- "gp_hp_n_5var"
 
-sf_reparam_5var <- gp_fit(modelName, data)
-rsf_reparam_5var <- read_stan_csv(sf_reparam_5var$output_files())
+sf_gp_hp_n_5var <- gp_fit(modelName, data)
+rsf_gp_hp_n_5var <- read_stan_csv(sf_gp_hp_n_5varoutput_files())
 ```
 ```{r}
-util$check_all_diagnostics(rsf_reparam_5var)
-div_detect(rsf_reparam_5var)
+util$check_all_diagnostics(rsf_gp_hp_n_5var)
+div_detect(rsf_gp_hp_n_5var)
 
-sf_reparam_5var_sm<-sf_reparam_5var$summary()
+sf_gp_hp_n_5var_sm<-sf_gp_hp_n_5var$summary()
 
-mse_res_reparam_5var <- mseNplot(sf_reparam_5var_sm,y)
-mse_res_reparam_5var 
+mse_res_n_5var <- mseNplot(sf_gp_hp_n_5var_sm,y)
+mse_res_n_5var 
 ```
 
 As mse value didn't decrease, we decided to use the same variance for each engine. 
 
 ## 3.2 Underfitting
 
-We approached the underestimated $\tilde{y}$ variance problem in two different ways.
+As predictive check shows, variance of observed values is larger than the variance of fitted values.(i.e. underfitting). 
 
-1) Larger value of `sigma_error_ship`
+To prevent underfitting, we want latent variable $\mu$ to fit better to observed data $y$. 
 
-The variance of  $\tilde{y}$  looks quite larger than fitted values(i.e. underfitting). So we simply gave larger value of `sigma_error_ship` prior@.
+So we decided to give smaller prior for `sigma_error_ship`. ($\because y \sim N(\mu, \sigma_{error\ ship})$)@
+
+1) Smaller value of `sigma_error_ship`
 
 ```{stan, eval=F, output.var="md"}
-sigma_error_ship ~ normal(0,1) -> sigma_error_ship ~ normal(1.5,1)
+  tot_var ~ normal(0,1);
+  vars = N_comp * prop_var * tot_var;
+  sigma_age = sqrt(vars[1]);
+  sigma_engine = sqrt(vars[2]);
+  sigma_ship = sqrt(vars[3]); 
+  sigma_GP_engine = sqrt(vars[4]);
+  sigma_GP_ship = sqrt(vars[5]);
+  sigma_error_ship = sqrt(vars[6]);
 ```
 
-
-```{r message=FALSE, results='hide'}
-modelName <- "gp_underfit_1"
-
-sf_underfit_1 <- gp_fit(modelName, data)
-rsf_underfit_1 <- read_stan_csv(sf_underfit_1$output_files())
-```
-
-```{r}
-util$check_all_diagnostics(rsf_underfit_1)
-div_detect(rsf_underfit_1)
-
-sf_underfit_1_sm<-sf_underfit_1$summary()
-
-mse_res_underfit_1 <- mseNplot(sf_underfit_1_sm,y)
-mse_res_underfit_1
-```
-
-MSE for this model is `r mse_res_underfit_1` where original(`sigma_error_ship ~ normal(0,1)`) was `r mse_res_reparam`. MSE didn't decrease by increasing `sigma_error ship`.
-
-
-2) Smaller value of `sigma_error_ship` 
-
-To prevent underfitting, we want latent variable $\mu$ to fit better to observed data $y$. So we decided to give smaller prior for `sigma_error_ship`. ($\because y \sim N(\mu, \sigma_{error\ ship})$)@
+Prior for `sigma_error_ship` in above models is `half-normal(0,1)` because $\text{N_comp}=6$ , $\text{prop_var} = (\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6})$ and $\text{tot_var} \sim half-normal(0,1)$.@
 
 Since prior of `sigma_error_ship` is half normal, giving smaller variance is equivalent to smaller expected value of half normal prior@. 
+This is because expectation of half-normal distribution $X\sim half-N(\mu,\sigma^2)$ is $\frac{\sigma\sqrt2}{\sqrt{\pi}} $.
 
 ```{stan, eval=F, output.var="md"}
-sigma_error_ship ~ normal(0,1) ->  sigma_error_ship ~ normal(0,0.1)
+sigma_error_ship ~ normal(0,1) -> sigma_error_ship ~ normal(0,0.1)
 ```
 
-
 ```{r message=FALSE, results='hide'}
-modelName <- "gp_underfit_2"
+modelName <- "gp_underfit"
 
-sf_underfit_2 <- gp_fit(modelName, data)
-rsf_underfit_2 <- read_stan_csv(sf_underfit_2$output_files())
+sf_underfit <- gp_fit(modelName, data)
+rsf_underfit <- read_stan_csv(sf_underfit$output_files())
 ```
 
 ```{r}
-util$check_all_diagnostics(rsf_underfit_2)
-div_detect(rsf_underfit_2)
+util$check_all_diagnostics(rsf_underfit)
+div_detect(rsf_underfit)
 
-sf_underfit_2_sm<-sf_underfit_2$summary()
+sf_underfit_sm<-sf_underfit$summary()
 
-mse_res_underfit_2 <- mseNplot(sf_underfit_2_sm,y)
-mse_res_underfit_2
+mse_res_underfit <- mseNplot(sf_underfit_sm,y)
+mse_res_underfit
 ```
 
 MSE decreased, so we decided to use smaller prior on `sigma_error_ship`.
