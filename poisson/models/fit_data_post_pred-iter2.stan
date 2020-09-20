@@ -1,7 +1,7 @@
 functions{
     real failure_form(real shape, real scale, real age){
     
-        return fmin((shape/scale) * pow(age/scale, shape-1) * exp(-pow(age/scale, shape)), 2);
+        return fmin((shape/scale) * pow(age/scale, shape-1) * exp(-pow(age/scale, shape)), 1.5);
     } 
 }
 
@@ -57,14 +57,14 @@ model {
     for(i in 1:engine_types){
         alpha[i] ~ lognormal(0, 0.5);
         beta[i] ~ normal(1.5, 0.3);
-        gamma[i] ~ normal(4, 1.5);
-        delta[i] ~ normal(1.3, 0.3);
+        gamma[i] ~ normal(4, 1);
+        delta[i] ~ normal(1.2, 0.3);
         
-        epsilon[i] ~ normal(1.5, 1);
-        eta[i] ~ normal(1.5, 1);
+        epsilon[i] ~ normal(0.8, 0.7);
+        eta[i] ~ normal(1, 0.7);
     }
     for(i in 1:ship_number_max){
-        zeta[i] ~ normal(0.5, 0.5);
+        zeta[i] ~ normal(0.3, 0.5);
         theta[i] ~ normal(0.5, 0.5);
     }
     
