@@ -38,3 +38,7 @@ model {
   eta ~ normal(0, 1);
   y ~ poisson_log(log(ye) + theta);
 }
+
+generated quantities{
+  int y_pred[n_obs] = poisson_log_rng(log(ye) + theta);
+}
