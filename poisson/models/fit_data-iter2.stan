@@ -1,7 +1,7 @@
 functions{
     real failure_form(real shape, real scale, real age){
     
-        return fmin((shape/scale) * pow(age/scale, shape-1) * exp(-pow(age/scale, shape)), 2);
+        return fmin((shape/scale) * pow(age/scale, shape-1) * exp(-pow(age/scale, shape)), 1.5);
     } 
 }
 
@@ -39,12 +39,12 @@ transformed parameters {
 model {
     alpha ~ lognormal(0, 0.5);
     beta ~ normal(1.5, 0.3);
-    gamma ~ normal(4, 1.5);
-    delta ~ normal(1.5, 0.3);
+    gamma ~ normal(4, 1);
+    delta ~ normal(1.2, 0.3);
     
-    epsilon ~ normal(1.5, 1);
-    zeta ~ normal(0.5, 0.5);
-    eta ~ normal(1.5, 1);
+    epsilon ~ normal(0.8, 0.7);
+    zeta ~ normal(0.3, 0.5);
+    eta ~ normal(1, 0.7);
     theta ~ normal(0.5, 0.5);
     
     y ~ poisson(exp(lambda));
