@@ -6,16 +6,16 @@ functions{
 }
 
 data {
-    int N;
+    int N; // number of observed data values
     int engine_types; // number of unique engines in engine_type
-    int y[N];
-    real complexity[N];
-    real<lower=0,upper=1> age[N];
-    int engine_type[N];
-    real relative_displacement[N];
-    int engine_count[N];
-    int ship_number[N];
-    int ship_number_max;
+    int y[N]; // observed data
+    real complexity[N]; // feature1
+    real<lower=0,upper=1> age[N]; // age at failure
+    int engine_type[N]; // unique engine type
+    real relative_displacement[N]; // feature2
+    int engine_count[N]; // feature3
+    int ship_number[N]; // ship type
+    int ship_number_max; // number of unique ship types
 
     int N_pred;
     real<lower=0, upper=1> age_pred[N_pred];
@@ -27,27 +27,23 @@ data {
 }
 
 parameters {
-    real<lower=0> alpha[engine_types];
-    real<lower=0> beta[engine_types];
+    real<lower=0> alpha[ship_number_max];
+    real<lower=0> beta[ship_number_max];
     real<lower=0> gamma[engine_types];
     real<lower=0> delta[engine_types];
 
-    real epsilon[engine_types];
-    real zeta[ship_number_max];
     real eta[engine_types];
     real theta[ship_number_max];
 }
 
 transformed parameters {
-    real early[N];
     real wear[N];
-    //real lambda[N];
     real lambda[N];
+    
     for(i in 1:N){
-        early[i] = complexity[i] * epsilon[engine_type[i]] + zeta[ship_number[i]] * log(relative_displacement[i]);
-        wear[i] = complexity[i] * engine_count[i] * eta[engine_type[i]] + theta[ship_number[i]] * log(relative_displacement[i]);
+        wear[i] = complexity[i] * engine_count[i] * eta[engine_type[i]] - theta[ship_number[i]] * log(relative_displacement[i]);
 
-        lambda[i] = early[i] * failure_form(alpha[engine_type[i]], beta[engine_type[i]], age[i]) + wear[i] * failure_form(gamma[engine_type[i]], delta[engine_type[i]], age[i]);
+        lambda[i] = failure_form(alpha[ship_number[i]], beta[ship_number[i]], age[i]) + wear[i] * failure_form(gamma[engine_type[i]], delta[engine_type[i]], age[i]);
 
         lambda[i] = exp(lambda[i]);
     }
@@ -55,17 +51,16 @@ transformed parameters {
 
 model {
     for(i in 1:engine_types){
-        alpha[i] ~ lognormal(0, 0.5);
-        beta[i] ~ normal(1.5, 0.3);
-        gamma[i] ~ normal(4, 1);
-        delta[i] ~ normal(1.2, 0.3);
+        gamma[i] ~ normal(2.5, 0.5); //weibull shape
+        delta[i] ~ normal(1.2, 0.15); // weibull scale
         
-        epsilon[i] ~ normal(0.8, 0.7);
-        eta[i] ~ normal(1, 0.7);
+        eta[i] ~ normal(0.5, 0.7); //wear parameter 1
     }
     for(i in 1:ship_number_max){
-        zeta[i] ~ normal(0.3, 0.5);
-        theta[i] ~ normal(0.5, 0.5);
+        alpha[i] ~ normal(0.5, 0.3); //weibull shape
+        beta[i] ~ normal(1.2, 0.05); //weibull scale
+        
+        theta[i] ~ normal(0.2, 0.3); //wear parameter 2
     }
     
     
@@ -78,11 +73,10 @@ model {
 generated quantities{
     int y_post_pred[N_pred];
     for(i in 1:N_pred){
-        real early_pred = complexity_pred[i] * epsilon[engine_type_pred[i]] + zeta[ship_number_pred[i]] * log(relative_displacement_pred[i]);
 
-        real wear_pred = complexity_pred[i] * engine_count_pred[i] * eta[engine_type[i]] + theta[ship_number_pred[i]] * log(relative_displacement_pred[i]);
+        real wear_pred = complexity_pred[i] * engine_count_pred[i] * eta[engine_type_pred[i]] - theta[ship_number_pred[i]] * log(relative_displacement_pred[i]);
 
-        real lambda_pred = early_pred * failure_form(alpha[engine_type[i]], beta[engine_type[i]], age_pred[i]) + wear_pred * failure_form(gamma[engine_type[i]], delta[engine_type[i]], age_pred[i]);
+        real lambda_pred = failure_form(alpha[ship_number_pred[i]], beta[ship_number_pred[i]], age_pred[i]) + wear_pred * failure_form(gamma[engine_type_pred[i]], delta[engine_type_pred[i]], age_pred[i]);
 
         y_post_pred[i] = poisson_rng(exp(lambda_pred));
     }
