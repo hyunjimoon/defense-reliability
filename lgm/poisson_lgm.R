@@ -76,16 +76,17 @@ div_detect <- function(stanfit){
          col=c_green_trans, pch=16, cex=0.8)
 }
 
-mseNplot <- function(x, y){
-  yhat<- x %>%
+mseNplot <- function(x, y_ext, ext_ind){
+  yhat_imputed <- x %>%
     dplyr::filter(str_detect(variable, "y_pred")) %>%
     pull(mean)
+  yhat_ext <- yhat_imputed[ext_ind]
   plot(1, type="n",xlim=c(0,31),ylim = c(0,300),xlab="age",ylab="failure count")
-  for (n in 1:653){
-    points(age_ind[n],y[n],col="black",pch=16)
-    points(age_ind[n],yhat[n],col="red")
+  for (n in 1:length(y_ext)){
+    points(age_ind[n],y_ext[n],col="black",pch=16)
+    points(age_ind[n],yhat_ext[n],col="red")
   }
-  mean((y-yhat)^2)
+  mean((y_ext-yhat_ext)^2)
 }
 #######################################################
 # data
@@ -95,40 +96,33 @@ N_ships <- 99
 N_ages <- 31
 N_ages_obs <- 31
 
-#ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to5.csv"))$engine
-ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to4.csv"))$engine
+ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to5.csv"))$engine
+#ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to4.csv"))$engine
 ship_ind <- read.csv(paste0(dataDir,"/ship_index.csv"))$ship
 age_ind <- read.csv(paste0(dataDir,"/x_age.csv"))[,-1]
-y_df <- read.csv(paste0(dataDir,"/failure_count.csv"))[,-1]
-# engine_mean = rep(NA, length(unique(ship_engine_ind)))
-# for (i in unique(ship_engine_ind)){
-#   engine_mean[i] <-  mean(as.matrix(y_df[c(ship_engine_ind==i)]), na.rm = TRUE) 
-# }
-# engine_mean[ship_engine_ind][ship_ind] : mean for each engine by index 1:653
+engine_ind <- ship_engine_ind[ship_ind]
+
+# existing 653 data
+y_ext_df <- read.csv(paste0(dataDir,"/y_count_original.csv"))[,-1]
+y_ext <- as.array(as.matrix(y_ext_df))
+y_ext <-  y_ext[!is.na(y_ext)]
+
+# imputed 31*99 data
+y_imp <- round(read.csv(paste0(dataDir,"/y_imputed9931_inverse.csv"))[,-1])
 age_mean = rep(NA, length(unique(age_ind)))
 for (i in unique(age_ind)){
   age_mean[i] <-  mean(as.matrix(y_df[i,]), na.rm = TRUE) 
 }
-y <- as.array(as.matrix(y_df))
-y <-  y[!is.na(y)]
 
-data <- list(n_obs = length(y),  x = matrix(age_ind, nrow = 653), n_covariates = 1, y = y, ye = age_mean[age_ind])
+data <- list(n_coordinates = 1, n_ages = length(unique(age_ind)), n_ships = length(ship_engine_ind), y = y_imp, ye = age_mean, ship_engine_ind = ship_engine_ind)
 data$alpha_mu_prior <- 0
 data$alpha_sd_prior <- 1
 data$rho_mu_prior <- 0
 data$rho_sd_prior <- 1
-###########################################################################
-# modelName <- "pois_lgm"
-# lgm_fit <- gp_fit(modelName, data)
-# lgm_fs <- lgm_fit$summary()
-# mseNplot(lgm_fs, y)
 
-modelName <- "pois_lgm_ela"
+modelName <- "pois_lgm_ela2"
 lgm_ela_fit <- gp_fit(modelName, data)
 lgm_ela_fs <- lgm_ela_fit$summary()
-mseNplot(lgm_ela_fs, y)
+ext_ind = which(!is.na(y_ext_df))
+mseNplot(lgm_ela_fs, y_ext, ext_ind)
 
-theta_ef <- lgm_fs %>%
-  dplyr::filter(str_detect(variable, "theta")) %>%
-  pull(mean)
-plot(theta_ef)
