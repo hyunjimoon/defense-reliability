@@ -506,7 +506,7 @@ data$emp_ls_scale <- emp_ls_scale_2
 ```
 
 # 3. Predictive checks
-## 3.1 Different $\sigma$ for each engine
+## 3.1. Different $\sigma$ for each engine
 
 From the plot, our $\tilde{y}$ seems to be different from y, real data. Below is how we updated the model iteratively to make our $\tilde{y}$ closer to y.
 
@@ -549,7 +549,7 @@ mse_res_n_5var <- mseNplot(sf_gp_hp_n_5var_sm,y)
 mse_res_n_5var 
 ```
 
-As mse value didn't decrease, we decided to use the same variance for each engine. 
+We decided to use the different variance for each engine. 
 
 ## 3.2 Underfitting
 
