@@ -36,7 +36,7 @@ $$\theta_k^{\ engine} \sim N(0,{\sigma^{engine}}^2\ )$$
 
 ##  Stan Code
 
-### data, transformed data block
+### Data, Transformed data block
 
 ```{r eval=FALSE}
 data {
@@ -59,7 +59,7 @@ transformed data {
 }
 ```
 
-### parameters block
+### Parameters block
 
 ```{r eval=FALSE}
 parameters {
@@ -89,7 +89,7 @@ parameters {
 
 * `length_GP_ship`, `length_GP_engine` are length-scale of covariance matrix , i.e. $l^{\gamma}$, $l^{\delta}$. 
 
-### transformed parameters block
+### Transformed parameters block
 
 ```{r eval=FALSE}
 transformed parameters {
@@ -156,7 +156,7 @@ transformed parameters {
 
 * `GP_engine = L_cov_engine * GP_engine_std` means $\delta_{k} = L_{\delta}*N(0,1)$ so that $\delta_{k} \sim \text{MultiNormal}(0,K_{l^{\delta},{\alpha}^{\delta}})$
 
-### model block
+### Model block
 
 ```{r eval=FALSE}
 model {
@@ -324,7 +324,7 @@ mseNplot <- function(x, y){
 
 We have started from [this](https://github.com/stan-dev/stancon_talks/tree/927ac4adb6864f256e37fa48932f28c3d31d5c2b/2017/Contributed-Talks/08_trangucci) reference code and modified based on the following steps. 1.domain knowledge, 2.prior pushforwd check, 3.prior predictive check. The last two differ in that the former's stage is parameter space and the latter is observation, i.e. y, space. 
 
-# 1. domain knowledge
+# 1. Domain knowledge
 
 First modifications were to simplify the model.
 
@@ -339,7 +339,7 @@ $\alpha$ and $\rho$ parameters could tuned with algebraic solvers match one's do
 
 `gp_hp.stan` is our baseline code.
 
-# 2. pre-predictive check
+# 2. Pre-predictive check
   
 Prametrizing prevented the need for our domain knowledge but instead, we had to set reasonable prior for `length_GP_engine` and `length_GP_ship`. First attemps were just to experiment with the given parmameters in the orginal model; which ended up with divergences.
 > length_engine_shape ~  normal(30, 1);
@@ -379,7 +379,7 @@ points(div_samples$length_GP_engine, div_samples$length_engine_scale,
 
 We observed two problems from the results.
 
-## 2.1. correlated and uneven density
+## 2.1. Correlated and uneven density
 When plotted, `length_GP_engine` and `length_engine_scale` showed ununiform samples which can be problematic while sampling [discourse discussion](https://discourse.mc-stan.org/t/does-uneven-pairsplot-density-indicate-reparameterization/17581/2), so we decided to reparameterize `length_GP_engine`.
 
 ```{r}
@@ -447,7 +447,7 @@ points(div_samples$length_engine_scale, div_samples$length_GP_engine_s,
 
 The reparameterization has led to more even plot.
 
-## 2.2. identification problems
+## 2.2. Identification problems
 As can be seen from the result, the value does not change much from the given prior values, which could indicate identification issues (refer to Bentancourt's [identity crisis](https://betanalpha.github.io/assets/case_studies/identifiability.html)). This might be due to the fact that data are scaled for security issues and have relatively weak impact on the prior update@. Therefore, to investigate the parameters' true range, weak priors are given. We chose $lognormal(0,3)$.
 
 ```{stan, eval=F, output.var="md"}
@@ -505,7 +505,7 @@ data$emp_ls_shape <- emp_ls_shape_2
 data$emp_ls_scale <- emp_ls_scale_2
 ```
 
-# 3. predictive checks
+# 3. Predictive checks
 ## 3.1 Different $\sigma$ for each engine
 
 From the plot, our $\tilde{y}$ seems to be different from y, real data. Below is how we updated the model iteratively to make our $\tilde{y}$ closer to y.
@@ -572,7 +572,7 @@ So we decided to give smaller prior for `sigma_error_ship`. ($\because y \sim N(
   sigma_error_ship = sqrt(vars[6]);
 ```
 
-Prior for `sigma_error_ship` in above models is `half-normal(0,1)` because $\text{N_comp}=6$ , $\text{prop_var} = (\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6})$ and $\text{tot_var} \sim half-normal(0,1)$.@
+Prior for `sigma_error_ship` in above models is `half-normal(0,1)` because $\text{N_comp}=6$ , $\text{prop_var} = (\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6})$ and $\text{tot_var} \sim half-normal(0,1)$.
 
 Since prior of `sigma_error_ship` is half normal, giving smaller variance is equivalent to smaller expected value of half normal prior@. 
 This is because expectation of half-normal distribution $X\sim half-N(\mu,\sigma^2)$ is $\frac{\sigma\sqrt2}{\sqrt{\pi}} $.
