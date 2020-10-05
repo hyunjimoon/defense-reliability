@@ -196,7 +196,7 @@ model {
 
 * priors for $\mu$, $\frac{\text{sum of all $sigma$ s}}{6}$, $l^{\gamma}$, $l^{\delta}$ are given. 
 
-```{r}
+```{r warning=FALSE}
 util <- new.env()
 source('stan_utility.R', local=util)
 source('gp_utility.R', local=util)
@@ -448,7 +448,7 @@ points(div_samples$length_engine_scale, div_samples$length_GP_engine_s,
 The reparameterization has led to more even plot.
 
 ## 2.2. Identification problems
-As can be seen from the result, the value does not change much from the given prior values, which could indicate identification issues (refer to Bentancourt's [identity crisis](https://betanalpha.github.io/assets/case_studies/identifiability.html)). This might be due to the fact that data are scaled for security issues and have relatively weak impact on the prior update@. Therefore, to investigate the parameters' true range, weak priors are given. We chose $lognormal(0,3)$.
+As can be seen from the result, the value does not change much from the given prior values, which could indicate identification issues (refer to Bentancourt's [identity crisis](https://betanalpha.github.io/assets/case_studies/identifiability.html)). This might be due to the fact that data are scaled for security issues and have relatively weak impact on the prior update. Therefore, to investigate the parameters' true range, weak priors are given. We chose $lognormal(0,3)$.
 
 ```{stan, eval=F, output.var="md"}
 length_engine_scale ~ lognormal(0, 3);
@@ -550,55 +550,6 @@ mse_res_n_5var
 ```
 
 We decided to use the different variance for each engine. 
-
-## 3.2 Underfitting
-
-As predictive check shows, variance of observed values is larger than the variance of fitted values.(i.e. underfitting). 
-
-To prevent underfitting, we want latent variable $\mu$ to fit better to observed data $y$. 
-
-So we decided to give smaller prior for `sigma_error_ship`. ($\because y \sim N(\mu, \sigma_{error\ ship})$)@
-
-1) Smaller value of `sigma_error_ship`
-
-```{stan, eval=F, output.var="md"}
-  tot_var ~ normal(0,1);
-  vars = N_comp * prop_var * tot_var;
-  sigma_age = sqrt(vars[1]);
-  sigma_engine = sqrt(vars[2]);
-  sigma_ship = sqrt(vars[3]); 
-  sigma_GP_engine = sqrt(vars[4]);
-  sigma_GP_ship = sqrt(vars[5]);
-  sigma_error_ship = sqrt(vars[6]);
-```
-
-Prior for `sigma_error_ship` in above models is `half-normal(0,1)` because $\text{N_comp}=6$ , $\text{prop_var} = (\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6},\frac{1}{6})$ and $\text{tot_var} \sim half-normal(0,1)$.
-
-Since prior of `sigma_error_ship` is half normal, giving smaller variance is equivalent to smaller expected value of half normal prior@. 
-This is because expectation of half-normal distribution $X\sim half-N(\mu,\sigma^2)$ is $\frac{\sigma\sqrt2}{\sqrt{\pi}} $.
-
-```{stan, eval=F, output.var="md"}
-sigma_error_ship ~ normal(0,1) -> sigma_error_ship ~ normal(0,0.1)
-```
-
-```{r message=FALSE, results='hide'}
-modelName <- "gp_underfit"
-
-sf_underfit <- gp_fit(modelName, data)
-rsf_underfit <- read_stan_csv(sf_underfit$output_files())
-```
-
-```{r}
-util$check_all_diagnostics(rsf_underfit)
-div_detect(rsf_underfit)
-
-sf_underfit_sm<-sf_underfit$summary()
-
-mse_res_underfit <- mseNplot(sf_underfit_sm,y)
-mse_res_underfit
-```
-
-MSE decreased, so we decided to use smaller prior on `sigma_error_ship`.
 
 # Conclusion
 - We had no domain knowledge on trend parameters `length_GP_engine`, and therefore used hyperparameters.
