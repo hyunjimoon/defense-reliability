@@ -2,7 +2,7 @@ library(rstan); library(cmdstanr); library(parallel); library("tidyverse")
 set.seed(1954)
 .libPaths("~/Rlib")
 options(mc.cores = parallel::detectCores())
-set_cmdstan_path("/Users/hyunjimoon/Dropbox/20_paper/charles/code/cmdstan")
+set_cmdstan_path("C:/Users/serim/Documents/academic/Bayes_Study/script/cmdstan")
 c_light <- c("#DCBCBC")
 c_light_highlight <- c("#C79999")
 c_mid <- c("#B97C7C")
@@ -24,7 +24,7 @@ c_dark_teal="#1D4F4F"
 c_green_trans <- c("#00FF0080")
 c_superfine <- c("#8F272705")
 
-scriptDir <- getwd()
+scriptDir <- "C:/Users/serim/Documents/academic/Bayes_Study/reliability_prediction"
 submodel <- "lgm"
 modelDir <- file.path(scriptDir, submodel, "models")
 dataDir <- file.path(scriptDir, "data")
@@ -55,7 +55,7 @@ div_detect <- function(stanfit){
   div_samples <- partition[[1]]
   nondiv_samples <- partition[[2]]
   
-  #다음 변수와  sigma_error_ship간 Pair plot으로 pathology발견?
+  #?????? 변??????  sigma_error_ship??? Pair plot?????? pathology발견?
   #cov_engine = cov_exp_quad(ages, sigma_GP_engine, length_GP_engine);
   #cov_ship = cov_exp_quad(ages, sigma_GP_ship, length_GP_ship);
   
@@ -107,8 +107,9 @@ y_ext_df <- read.csv(paste0(dataDir,"/y_count_original.csv"))[,-1]
 y_ext <- as.array(as.matrix(y_ext_df))
 y_ext <-  y_ext[!is.na(y_ext)]
 
+
 # imputed 31*99 data
-y_imp <- round(read.csv(paste0(dataDir,"/y_imputed9931_inverse.csv"))[,-1])
+y_imp <- round(read.csv(paste0(dataDir,"/y_imputeTS.csv"))[,-1])
 age_mean = rep(NA, length(unique(age_ind)))
 for (i in unique(age_ind)){
   age_mean[i] <-  mean(as.matrix(y_df[i,]), na.rm = TRUE) 
@@ -125,4 +126,3 @@ lgm_ela_fit <- gp_fit(modelName, data)
 lgm_ela_fs <- lgm_ela_fit$summary()
 ext_ind = which(!is.na(y_ext_df))
 mseNplot(lgm_ela_fs, y_ext, ext_ind)
-
