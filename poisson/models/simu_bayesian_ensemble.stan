@@ -1,7 +1,12 @@
 functions{
     real failure_form(real shape, real age){
         return (pow(exp(shape), age) - 1)/(exp(shape) - 1);
-    } 
+    }
+    real truncated_normal_rng(real mu, real sigma, real lb){
+        real p = normal_cdf(lb, mu, sigma);  // cdf for bounds
+        real u = uniform_rng(p, 1);
+        return (sigma * inv_Phi(u)) + mu;  // inverse cdf for value
+    }
 }
 
 data {
@@ -14,8 +19,8 @@ data {
 }
 
 generated quantities{
-    real<lower=1> phi = normal_rng(10, 5);
-    real<lower=1> rho = normal_rng(5, 3);
+    real<lower=1> phi = truncated_normal_rng(10, 5, 1.0);
+    real<lower=1> rho = truncated_normal_rng(5, 3, 1.0);
     real alpha = normal_rng(1.5, 1);
     real beta = normal_rng(0, 0.5);
     real gamma = normal_rng(0, 1);

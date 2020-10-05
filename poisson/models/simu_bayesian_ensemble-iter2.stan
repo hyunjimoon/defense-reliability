@@ -19,15 +19,15 @@ data {
 }
 
 generated quantities{
-    real<lower=0> alpha = truncated_normal_rng(0.05, 0.3, 0.0);
+    real<lower=0> alpha = truncated_normal_rng(0.5, 0.3, 0.0);
     real<lower=0> beta = truncated_normal_rng(1.2, 0.05, 0.0);
     real<lower=0> gamma = truncated_normal_rng(2.5, 0.5, 0.0);
-    real<lower=0> delta = truncated_normal_rng(1.2, 0.1, 0.0);
+    real<lower=0> delta = truncated_normal_rng(1.2, 0.15, 0.0);
 
     real eta = normal_rng(0.5, 0.7);
     real theta = normal_rng(0.2, 0.3);
 
-    real wear = complexity * engine_count * eta;// - theta * log(relative_displacement);
+    real wear = complexity * engine_count * eta - theta * log(relative_displacement);
     real lambda = failure_form(alpha, beta, age) + wear * failure_form(gamma, delta, age);
     int y[N];
     for(n in 1:N){
