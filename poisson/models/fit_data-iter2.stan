@@ -31,21 +31,21 @@ transformed parameters {
     real early;
     real wear;
     real lambda;
-    early = complexity * epsilon + zeta * log(relative_displacement);
-    wear = complexity * engine_count * eta + theta * log(relative_displacement);
-    lambda = early * failure_form(alpha, beta, age) + wear * failure_form(gamma, delta, age);
+    early = complexity * epsilon;// + zeta * log(relative_displacement);
+    wear = complexity * engine_count * eta - theta * log(relative_displacement);
+    lambda = failure_form(alpha, beta, age) + wear * failure_form(gamma, delta, age);
 }
 
 model {
-    alpha ~ lognormal(0, 0.5);
-    beta ~ normal(1.5, 0.3);
-    gamma ~ normal(4, 1);
-    delta ~ normal(1.2, 0.3);
+    alpha ~ normal(0.05, 0.3);
+    beta ~ normal(1.2, 0.05);
+    gamma ~ normal(2.5, 0.5);
+    delta ~ normal(1.2, 0.1);
     
     epsilon ~ normal(0.8, 0.7);
     zeta ~ normal(0.3, 0.5);
-    eta ~ normal(1, 0.7);
-    theta ~ normal(0.5, 0.5);
+    eta ~ normal(0.5, 0.7);
+    theta ~ normal(0.2, 0.3);
     
     y ~ poisson(exp(lambda));
 }

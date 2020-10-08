@@ -18,7 +18,7 @@ data {
 
 transformed data {
   real ages[N_ages];
-  int N_comp = 6;
+  int N_comp = 10;
   for (t in 1:N_ages)
     ages[t] = t;
 }
@@ -53,7 +53,7 @@ transformed parameters {
   real sigma_engine;
   real sigma_ship; 
 
-  real sigma_error_ship;
+  real sigma_error_ship[5];
 
   real sigma_GP_engine;
   real sigma_GP_ship;
@@ -67,7 +67,9 @@ transformed parameters {
   sigma_ship = sqrt(vars[3]); 
   sigma_GP_engine = sqrt(vars[4]);
   sigma_GP_ship = sqrt(vars[5]);
-  sigma_error_ship = sqrt(vars[6]);
+  for (i in 6:N_comp){
+      sigma_error_ship[i-5] = sqrt(vars[i]);
+  }
 
   engine_re = sigma_engine * engine_std;
   age_re = sigma_age * age_std;
@@ -104,8 +106,10 @@ model {
               + ship_re[ship_ind[n]]   
               + GP_engine[age_ind[n],ship_engine_ind[ship_ind[n]]] //f_engine 
               + GP_ship[age_ind[n],ship_ind[n]];                   //f_ship
+    
+    y[n] ~ normal(obs_mu[n], sigma_error_ship[ship_engine_ind[ship_ind[n]]]);
   }
-  y ~ normal(obs_mu, sigma_error_ship); 
+
 
   to_vector(GP_engine_std) ~ normal(0, 1);
   to_vector(GP_ship_std) ~ normal(0, 1);
@@ -120,7 +124,7 @@ model {
   length_ship_scale ~ normal(emp_ls_scale, hp_scale);
   length_GP_engine_s ~ weibull(length_engine_shape,1);
   length_GP_ship_s ~ weibull(length_ship_shape,1);
-  sigma_error_ship ~ normal(1.5,1);
+  sigma_error_ship ~ normal(0,0.1);
 }
 
 generated quantities {
@@ -135,8 +139,8 @@ generated quantities {
                           + ship_re[ship]
                           + GP_engine[t,ship_engine_ind[ship]]
                           + GP_ship[t,ship];
-   
-         y_new_pred[t,ship] = normal_rng(y_new[t,ship], sigma_error_ship);
+                          
+          y_new_pred[t,ship] = normal_rng(y_new[t,ship],sigma_error_ship[ship_engine_ind[ship]]);
        }
    }
 }
