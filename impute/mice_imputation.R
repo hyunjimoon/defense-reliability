@@ -1,7 +1,6 @@
 library(mice)
 
-if(interactive()){
-  
+generateMice <- function(){
   scriptDir <- getwd()
   dataDir <- dataDir <- file.path(scriptDir, "data")
   
@@ -36,8 +35,16 @@ if(interactive()){
     } 
     engine_ind[i] <- ship_engine_ind[i %% 99]
   }
-  data_df <- data.frame(as.vector(y_ext), age_ind, ship_ind, engine_ind)
+  y_data <- as.vector(y_ext)
+  data_df <- data.frame(y_data, age_ind, ship_ind, engine_ind)
   md.pattern(data_df)
   
-  mice_imputed <- mice(data_df)
+  mice_imputed <- mice(data_df, m=2)
+  
+  return(mice_imputed)
+}
+
+if(interactive()){
+  #generateMice()
+  
 }
