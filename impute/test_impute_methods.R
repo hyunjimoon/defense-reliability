@@ -41,7 +41,7 @@ for(i in 1:length(complexity_ind)){
     complexity_ind[i] <- 1.0
   }
 }
-  
+
 displacement <- c(5520, 3100, 170, 570, 3300)
 displacement_ind = array(dim=31*99)
 for(i in 1:length(displacement_ind)){
@@ -144,3 +144,28 @@ pooled = as.matrix(cbind(poisson=poisson_pred, brms1=predict(model1)[, "Estimate
 MSE(mice_data1$y_data, pooled %*% as.vector(rt))
 MSE(mice_data1$y_data, poisson_pred)
 MSE(mice_data1$y_data, gp_pred)
+
+###############################
+
+test_y <- read.csv(paste0(getwd(), "/impute/failure_count_test.csv"))
+test_y_data <- test_y[!is.na(test_y)]
+test_ship <- which(!is.na(test_y), arr.ind=TRUE)[,"col"]
+test_age <- which(!is.na(test_y), arr.ind=TRUE)[,"row"]
+test_engine <- ship_engine_ind[test_ship]
+
+newdata <- data.frame(y_data=test_y_data, ship_ind=test_ship, engine_ind=test_engine, age_ind=test_age)
+
+brms1_test_pred <- predict(model1, newdata = newdata)[, "Estimate"]
+brms2_test_pred <- predict(model2, newdata = newdata)[, "Estimate"]
+
+MSE(test_y_data, brms1_test_pred)
+MSE(test_y_data, brms2_test_pred)
+
+
+gp_test_pred <- rep(0.0, length = length(test_y_data))
+gp_summary <-summary(gp_model, pars=list("mu", "age_re", "engine_re", "ship_re", "GP_engine", "GP_ship"))$summary[, "mean"]
+gp_mu <- gp_summary["mu"]
+for(i in 1:length(test_y_data)){
+  gp_test_pred[i] <- gp_mu + gp_summary[paste0("age_re[",test_age[i],"]")] + gp_summary[paste0("engine_re[",test_engine[i],"]")] + gp_summary[paste0("ship_re[",test_ship[i],"]")] + gp_summary[paste0("GP_engine[",test_age[i],",", test_engine[i], "]")] + gp_summary[paste0("GP_ship[",test_age[i],",", test_ship[i], "]")]
+}
+
