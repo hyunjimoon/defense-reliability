@@ -122,7 +122,7 @@ model {
 generated quantities {
   matrix[N_ages,N_ships] y_new;
   matrix[N_ages,N_ships] y_new_pred;
-
+  vector[N] log_lik;
   for (ship in 1:N_ships) {
     for (t in 1:N_ages) {
            y_new[t, ship] = mu
@@ -134,5 +134,13 @@ generated quantities {
    
          y_new_pred[t,ship] = normal_rng(y_new[t,ship], sigma_error_ship);
        }
+   }
+   for(i in 1:N){
+     log_lik[i] = normal_lpdf(y[i] | mu 
+              + age_re[age_ind[i]]                                 //fixed effects
+              + engine_re[ship_engine_ind[ship_ind[i]]] 
+              + ship_re[ship_ind[i]]   
+              + GP_engine[age_ind[i],ship_engine_ind[ship_ind[i]]] //f_engine 
+                  + GP_ship[age_ind[i],ship_ind[i]], sigma_error_ship);
    }
 }

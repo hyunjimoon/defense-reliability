@@ -72,10 +72,14 @@ model {
 
 generated quantities{
     int y_post_pred[N_pred];
+    real log_lik[N];
+    for(i in 1:N){
+        log_lik[i] = poisson_lpmf(y[i] | lambda[i]);
+    }
     for(i in 1:N_pred){
         real early_pred = complexity_pred[i] * alpha[engine_type_pred[i]] + beta[ship_number_pred[i]] * log(relative_displacement_pred[i]);
         real wear_pred = complexity_pred[i] * engine_count_pred[i] * gamma[engine_type_pred[i]] + delta[ship_number_pred[i]] * log(relative_displacement_pred[i]);
         real lambda_pred = early_pred * failure_form(phi[ship_number_pred[i]], -age_pred[i]+1) + wear_pred * failure_form(rho[ship_number_pred[i]], age_pred[i]) + eta[ship_number_pred[i]];
-        y_post_pred[i] = poisson_rng(exp(lambda_pred));
+        y_post_pred[i] = poisson_rng(exp(lambda_pred));       
     }
 }

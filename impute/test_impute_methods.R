@@ -1,5 +1,6 @@
 library(brms)
 library(rstan)
+library(loo)
 source(file.path(getwd(), "impute/mice_imputation.R"))
 
 MSE <- function(obs, pred){
@@ -22,13 +23,13 @@ mice_imp <- generateMice()
 mice_data1 <- complete(mice_imp, 1)
 mice_data2 <- complete(mice_imp, 2)
 
-#model1 <- brm(y_data ~ ship_ind + engine_ind + age_ind, data=mice_data1, family=poisson(), cores=4)
+model1 <- brm(y_data ~ ship_ind + engine_ind + age_ind, data=mice_data1, family=poisson(), cores=4)
 
-#MSE(mice_data1$y_data, predict(model1))
+MSE(mice_data1$y_data, predict(model1))
 
-#model2 <- brm(y_data ~ ship_ind + engine_ind + age_ind + (1 + age_ind|engine_ind) + (1 + age_ind|ship_ind), data = mice_data2,family = poisson(), cores=4)
+model2 <- brm(y_data ~ ship_ind + engine_ind + age_ind + (1 + age_ind|engine_ind) + (1 + age_ind|ship_ind), data = mice_data1,family = poisson(), cores=4)
 
-#MSE(mice_data1$y_data, predict(model2))
+MSE(mice_data1$y_data, predict(model2))
 
 complexity_ind = array(dim=31*99)
 for(i in 1:length(complexity_ind)){
@@ -86,4 +87,60 @@ for(i in 1:length(displacement_ind)){
   ship_number_pred=mice_data1$ship_ind
 )
 
-poisson_model <- stan(paste0(getwd(), "/poisson/models/fit_data_post_pred-iter2_backup(1012).stan"), data=stanfit_data, cores=1)
+poisson_model <- stan(paste0(getwd(), "/poisson/models/fit_data_post_pred.stan"), data=stanfit_data, cores=4)
+
+
+###################################
+N_engines <- 5 
+N_ships <- 99
+N_ages <- 31
+N_ages_obs <- 31
+
+
+ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to4.csv"))$engine
+gp_data <- list(N = length(mice_data1$y_data), 
+             N_engines=max(ship_engine_ind),
+             N_ships = max(mice_data1$ship_ind), 
+             N_ages= max(mice_data1$age_ind), 
+             N_ages_obs = max(mice_data1$age_ind), 
+             ship_engine_ind = ship_engine_ind, 
+             ship_ind = mice_data1$ship_ind, 
+             age_ind = mice_data1$age_ind,
+             y=mice_data1$y_data)
+
+gp_data$hp_scale <- 3
+
+gp_model <- stan(paste0(getwd(), "/gaussianprocess/models/gp_hp_lognorm/gp_hp_lognorm.stan"), data=gp_data, cores=4)
+
+gp_loo <- loo(gp_model)
+
+gp_pred = array(dim=31*99)
+gp_summary <-summary(gp_model, pars=list("y_new_pred"))
+for(t in 1:max(mice_data1$age_ind)){
+  for(s in 1:max(mice_data1$ship_ind)){
+   # print(format("y_new_pred[%d,%d]", t, s))
+    gp_pred[(t-1) * 99 + s] <- gp_summary$summary[paste0("y_new_pred[", t,",", s,"]"), "mean"]
+    
+  }
+}
+###################################
+
+
+poisson_loo <- loo(poisson_model)
+model1_loo <- loo(model1)
+model2_loo = loo(model2)
+
+#loo_compare(lost(model1_loo, poisson_loo))
+
+rt <- loo_model_weights(list(poisson=poisson_loo, brms1=model1_loo, brms2=model2_loo))#, gp=gp_loo, brms1=model1_loo, brms2=model2_loo))
+
+poisson_pred = rep(0, length(mice_data1$y_data))
+poisson_pred_ = extract(poisson_model, pars=list("y_post_pred"))$y_post_pred
+for(i in 1:length(mice_data1$y_data)){
+  poisson_pred[i] = mean(poisson_pred_[, i])
+}
+pooled = as.matrix(cbind(poisson=poisson_pred, brms1=predict(model1)[, "Estimate"], brms2=predict(model2)[, "Estimate"]))
+
+MSE(mice_data1$y_data, pooled %*% as.vector(rt))
+MSE(mice_data1$y_data, poisson_pred)
+MSE(mice_data1$y_data, gp_pred)
