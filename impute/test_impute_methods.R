@@ -66,7 +66,7 @@ for(i in 1:length(displacement_ind)){
   }
 }
 
-  stanfit_data = list(
+stanfit_data = list(
   N=length(mice_data1$y_data),
   engine_types=max(mice_data1$engine_ind),
   y=mice_data1$y_data,

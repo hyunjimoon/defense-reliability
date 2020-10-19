@@ -62,11 +62,11 @@ model {
     s_a_bar ~ normal(0, 2);
     s_w_bar ~ gamma(2, 1.7);
 
-    s_a_bar_tilde ~ std_normal();
-    s_w_bar_tilde ~ std_normal();
+    s_a_bar_tilde ~ normal(0, 1);
+    s_w_bar_tilde ~ normal(0, 1);
     
-    s_a_tilde ~ std_normal(); // normal(0,1)
-    s_w_tilde ~ std_normal();
+    s_a_tilde ~ normal(0, 1); // normal(0,1)
+    s_w_tilde ~ normal(0, 1);
 
     s_Y ~ exponential(1); // exponential(4)
     
