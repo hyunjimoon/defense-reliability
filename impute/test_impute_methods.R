@@ -23,6 +23,7 @@ mice_imp <- generateMice()
 mice_data1 <- complete(mice_imp, 1)
 mice_data2 <- complete(mice_imp, 2)
 
+ggplot(mice_data1, aes(mice_data1$ship_ind, mice_data1$age_ind, fill=mice_data1$y_data)) + scale_fill_gradientn(colours=rainbow(5)) + geom_tile() + coord_equal()
 model1 <- brm(y_data ~ ship_ind + engine_ind + age_ind, data=mice_data1, family=poisson(), cores=4)
 
 MSE(mice_data1$y_data, predict(model1))
