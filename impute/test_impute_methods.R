@@ -186,4 +186,4 @@ for(i in 1:length(test_y_data)){
 }
 
 print("imputed gp model cv MSE:")
-MSE(cv_testdata, gp_pred)
+MSE(test_y_data, gp_test_pred)
