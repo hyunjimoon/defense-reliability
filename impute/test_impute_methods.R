@@ -1,6 +1,7 @@
 library(brms)
 library(rstan)
 library(loo)
+library(ggplot2)
 source(file.path(getwd(), "impute/mice_imputation.R"))
 
 MSE <- function(obs, pred){
@@ -8,6 +9,22 @@ MSE <- function(obs, pred){
   }
 
 scriptDir <- getwd()
+###########################
+# OUT OF SAMPLE TEST DATA
+
+
+test_y <- read.csv(paste0(getwd(), "/impute/failure_count_test.csv"))[, 2:11]
+test_y_data <- test_y[!is.na(test_y)]
+test_ship <- which(!is.na(test_y), arr.ind=TRUE)[,"col"]
+test_age <- which(!is.na(test_y), arr.ind=TRUE)[,"row"]
+test_engine <- ship_engine_ind[test_ship]
+
+cv_testdata <- data.frame(y_data=test_y_data, ship_ind=test_ship, engine_ind=test_engine, age_ind=test_age)
+
+
+############################
+# Prepare and impute data
+
 dataDir <- dataDir <- file.path(scriptDir, "data")
 
 ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to4.csv"))$engine
@@ -25,12 +42,12 @@ mice_data2 <- complete(mice_imp, 2)
 
 ggplot(mice_data1, aes(mice_data1$ship_ind, mice_data1$age_ind, fill=mice_data1$y_data)) + scale_fill_gradientn(colours=rainbow(5)) + geom_tile() + coord_equal()
 model1 <- brm(y_data ~ ship_ind + engine_ind + age_ind, data=mice_data1, family=poisson(), cores=4)
-
-MSE(mice_data1$y_data, predict(model1))
+print("imputed model1 cv MSE:")
+print(MSE(mice_data1$y_data, predict(model1, newdata = cv_testdata)))
 
 model2 <- brm(y_data ~ ship_ind + engine_ind + age_ind + (1 + age_ind|engine_ind) + (1 + age_ind|ship_ind), data = mice_data1,family = poisson(), cores=4)
-
-MSE(mice_data1$y_data, predict(model2))
+print("imputed model2 cv MSE:")
+print(MSE(mice_data1$y_data, predict(model2, newdata = cv_testdata)))
 
 complexity_ind = array(dim=31*99)
 for(i in 1:length(complexity_ind)){
@@ -67,28 +84,28 @@ for(i in 1:length(displacement_ind)){
   }
 }
 
-stanfit_data = list(
-  N=length(mice_data1$y_data),
-  engine_types=max(mice_data1$engine_ind),
-  y=mice_data1$y_data,
-  complexity=complexity_ind,
-  age=(mice_data1$age_ind-1)/30,
-  engine_type=mice_data1$engine_ind,
-  relative_displacement=displacement_ind,
-  engine_count=rep(2, length(mice_data1$y_data)),
-  ship_number=mice_data1$ship_ind,
-  ship_number_max=max(mice_data1$ship_ind),
-  
-  N_pred=length(mice_data1$y_data),
-  age_pred=(mice_data1$age_ind-1)/30,
-  complexity_pred=complexity_ind,
-  relative_displacement_pred=displacement_ind,
-  engine_count_pred=rep(2, length(mice_data1$y_data)),
-  engine_type_pred=mice_data1$engine_ind,
-  ship_number_pred=mice_data1$ship_ind
-)
-
-poisson_model <- stan(paste0(getwd(), "/poisson/models/fit_data_post_pred.stan"), data=stanfit_data, cores=4)
+# stanfit_data = list(
+#   N=length(mice_data1$y_data),
+#   engine_types=max(mice_data1$engine_ind),
+#   y=mice_data1$y_data,
+#   complexity=complexity_ind,
+#   age=(mice_data1$age_ind-1)/30,
+#   engine_type=mice_data1$engine_ind,
+#   relative_displacement=displacement_ind,
+#   engine_count=rep(2, length(mice_data1$y_data)),
+#   ship_number=mice_data1$ship_ind,
+#   ship_number_max=max(mice_data1$ship_ind),
+#   
+#   N_pred=length(mice_data1$y_data),
+#   age_pred=(mice_data1$age_ind-1)/30,
+#   complexity_pred=complexity_ind,
+#   relative_displacement_pred=displacement_ind,
+#   engine_count_pred=rep(2, length(mice_data1$y_data)),
+#   engine_type_pred=mice_data1$engine_ind,
+#   ship_number_pred=mice_data1$ship_ind
+# )
+# 
+# poisson_model <- stan(paste0(getwd(), "/poisson/models/fit_data_post_pred.stan"), data=stanfit_data, cores=4)
 
 
 ###################################
@@ -124,42 +141,40 @@ for(t in 1:max(mice_data1$age_ind)){
     
   }
 }
+
 ###################################
 
 
-poisson_loo <- loo(poisson_model)
-model1_loo <- loo(model1)
-model2_loo = loo(model2)
-
-#loo_compare(lost(model1_loo, poisson_loo))
-
-rt <- loo_model_weights(list(poisson=poisson_loo, brms1=model1_loo, brms2=model2_loo))#, gp=gp_loo, brms1=model1_loo, brms2=model2_loo))
-
-poisson_pred = rep(0, length(mice_data1$y_data))
-poisson_pred_ = extract(poisson_model, pars=list("y_post_pred"))$y_post_pred
-for(i in 1:length(mice_data1$y_data)){
-  poisson_pred[i] = mean(poisson_pred_[, i])
-}
-pooled = as.matrix(cbind(poisson=poisson_pred, brms1=predict(model1)[, "Estimate"], brms2=predict(model2)[, "Estimate"]))
-
-MSE(mice_data1$y_data, pooled %*% as.vector(rt))
-MSE(mice_data1$y_data, poisson_pred)
-MSE(mice_data1$y_data, gp_pred)
+# poisson_loo <- loo(poisson_model)
+# model1_loo <- loo(model1)
+# model2_loo = loo(model2)
+# 
+# #loo_compare(lost(model1_loo, poisson_loo))
+# 
+# rt <- loo_model_weights(list(poisson=poisson_loo, brms1=model1_loo, brms2=model2_loo))#, gp=gp_loo, brms1=model1_loo, brms2=model2_loo))
+# 
+# poisson_pred = rep(0, length(mice_data1$y_data))
+# poisson_pred_ = extract(poisson_model, pars=list("y_post_pred"))$y_post_pred
+# for(i in 1:length(mice_data1$y_data)){
+#   poisson_pred[i] = mean(poisson_pred_[, i])
+# }
+# pooled = as.matrix(cbind(poisson=poisson_pred, brms1=predict(model1)[, "Estimate"], brms2=predict(model2)[, "Estimate"]))
+# 
+# MSE(mice_data1$y_data, pooled %*% as.vector(rt))
+# MSE(mice_data1$y_data, poisson_pred)
+# MSE(mice_data1$y_data, gp_pred)
 
 ###############################
+# TEST OUT OF SAMPLE DATA
 
-test_y <- read.csv(paste0(getwd(), "/impute/failure_count_test.csv"))
-test_y_data <- test_y[!is.na(test_y)]
-test_ship <- which(!is.na(test_y), arr.ind=TRUE)[,"col"]
-test_age <- which(!is.na(test_y), arr.ind=TRUE)[,"row"]
-test_engine <- ship_engine_ind[test_ship]
-
-newdata <- data.frame(y_data=test_y_data, ship_ind=test_ship, engine_ind=test_engine, age_ind=test_age)
 
 brms1_test_pred <- predict(model1, newdata = newdata)[, "Estimate"]
 brms2_test_pred <- predict(model2, newdata = newdata)[, "Estimate"]
 
+print("out of sample test data pred MSE")
+print("1. brms1_test_pred")
 MSE(test_y_data, brms1_test_pred)
+print("2. brms2_test_pred")
 MSE(test_y_data, brms2_test_pred)
 
 
@@ -170,3 +185,5 @@ for(i in 1:length(test_y_data)){
   gp_test_pred[i] <- gp_mu + gp_summary[paste0("age_re[",test_age[i],"]")] + gp_summary[paste0("engine_re[",test_engine[i],"]")] + gp_summary[paste0("ship_re[",test_ship[i],"]")] + gp_summary[paste0("GP_engine[",test_age[i],",", test_engine[i], "]")] + gp_summary[paste0("GP_ship[",test_age[i],",", test_ship[i], "]")]
 }
 
+print("imputed gp model cv MSE:")
+MSE(cv_testdata, gp_pred)
