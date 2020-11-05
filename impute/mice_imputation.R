@@ -4,7 +4,7 @@ generateMice <- function(){
   scriptDir <- getwd()
   dataDir <- dataDir <- file.path(scriptDir, "data")
   
-  ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to4.csv"))$engine
+  ship_engine_ind <- read.csv(paste0(dataDir,"/engine_type1to5.csv"))$engine
   ship_ind <- read.csv(paste0(dataDir,"/ship_index.csv"))$ship
   age_ind <- read.csv(paste0(dataDir,"/x_age.csv"))[,-1]
   engine_ind <- ship_engine_ind[ship_ind]
