@@ -9,7 +9,9 @@ imputed_data <- complete(mice_imp, 1)
 
 ####################################
 state_count = 5
-
+max_allowed_state = 3
+repair_state = 2
+initial_state = 1
 
 generate_maintenance_matrix <- function(n_states, max_allowed_state, repair_state){
   mat <- matrix(rep(0, len=n_states ** 2), nrow=n_states)
@@ -30,7 +32,6 @@ generate_state_matrix <- function(data, n){
 }
 
 state_matrix <- generate_state_matrix(imputed_data$y_data, state_count)
-
 # one-hot encode to vector
 
 options(scipen = 999)
@@ -42,15 +43,15 @@ for(engine_type in 1:5){
     t_tmp[states[i]] <- 1
     onehot[[i]] <- t_tmp
   }
-  opt_data <- list(N=length(onehot), state_obs=onehot, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type])
+  opt_data <- list(N=length(onehot), n_states=state_count, state_obs=onehot, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
   res <- optimizing(model, opt_data)$par
-  mat <- matrix(rep(0.0, 25), nrow=5)
-  for(i in 1:5){mat[i,i] <- 1}
+  mat <- matrix(rep(0.0, 25), nrow=state_count)
+  for(i in 1:state_count){mat[i,i] <- 1}
   cnt <- 1
-  for(state in 1:4){
-    for(col in 1:(6 - state)){
-      mat[state, col + (state-1)] <- as.numeric(res[paste0("state_",state,"[",col,"]")])
-      if(is.na(as.numeric(res[paste0("state_",state,"[",col,"]")]))){
+  for(state in 1:state_count){
+    for(col in 1:state_count){
+      mat[state, col] <- as.numeric(res[paste0("probs[",state,",",col,"]")])
+      if(is.na(as.numeric(res[paste0("probs[",state,",",col,"]")]))){
         print(paste(state, col))
       }
       #mat[cnt] <- as.numeric(res[paste0("D[",row,",",col,"]")])

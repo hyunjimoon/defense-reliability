@@ -11,57 +11,54 @@
 
 // The input data is a vector 'y' of length 'N'.
 data {
-  int<lower=0> N;
+  int<lower=0> N; // numbmer of observations
+  int<lower=1>n_states; // number of states
   vector[5] state_obs[N];
   int time_obs[N];
+  int max_allowed_state;
+  int repair_state;
+  int<lower=1, upper=n_states> initial_state;
 }
 
 transformed data {
-  vector[5] initial;
-  initial[1] = 1;
-  for(i in 2:5){
+  vector[n_states] initial;
+  matrix[n_states, n_states] M;
+
+  for(i in 1:n_states){
     initial[i] = 0;
+    if(i == initial_state){
+      initial[i] = 1;
+    }
+  }
+
+  for(i in 1:n_states){
+    for(j in 1:n_states){
+      M[i, j] = 0;
+    }
+  }
+  for(i in 1:max_allowed_state){
+    M[i, i] = 1;
+  }
+  for(i in max_allowed_state+1:n_states){
+    M[i, repair_state] = 1;
   }
 }
 
-// The parameters accepted by the model. Our model
-// accepts two parameters 'mu' and 'sigma'.
+
 parameters {
-  simplex[5] state_1;
-  simplex[4] state_2;
-  simplex[3] state_3;
-  simplex[2] state_4;
+  simplex[n_states] probs[n_states];
 }
 
 transformed parameters {
-  matrix[5, 5] D;
-  matrix[5,5] D_pow[N];
-  D[2, 1] = 0;
-  D[3, 1] = 0;
-  D[3, 2] = 0;
-  D[4, 1] = 0;
-  D[4, 2] = 0;
-  D[4, 3] = 0;
-  for(i in 1:5){
-    D[1, i] = state_1[i];
+  matrix[n_states, n_states] D;
+  matrix[n_states, n_states] D_pow[N];
+  for(i in 1:n_states){
+   for(j in 1:n_states){
+     D[i,j] = probs[i, j];
+   }
   }
-  for(i in 2:5){
-    D[2, i] = state_2[i-1];
-  }
-  for(i in 3:5){
-    D[3, i] = state_3[i-2];
-  }
-  for(i in 4:5){
-    D[4, i] = state_4[i-3];
-  }
-  for(i in 1:4){
-    D[5, i] = 0;
-  }
-  D[5, 5] = 1;
-  
-  
   for(i in 1:N){
-    D_pow[i] = D;
+    D_pow[i] = D * M;
     for(j in 2:time_obs[i]){
       D_pow[i] = D_pow[i] * D_pow[i];
     }
@@ -73,7 +70,7 @@ transformed parameters {
 // and standard deviation 'sigma'.
 model {
   for(i in 1:N){
-    target += -(D_pow[i] * initial - state_obs[i]);
+    target += -(initial'  * D_pow[i] * D - state_obs[i]');
   }
 }
 
