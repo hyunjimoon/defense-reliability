@@ -1,7 +1,7 @@
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
-model <- stan_model(file.path(getwd(), "optimize/step1/approx_deterioration_matrix.stan"))
+model <- stan_model(file.path(getwd(), "optimize/step1/approx_deterioration_matrix.stan"), verbose = TRUE)
 
 
 mice_imp <- generateMice()
@@ -44,18 +44,14 @@ for(engine_type in 1:5){
     onehot[[i]] <- t_tmp
   }
   opt_data <- list(N=length(onehot), n_states=state_count, state_obs=onehot, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
-  res <- optimizing(model, opt_data)$par
+  res <- optimizing(model, opt_data)
+  print(paste0("return code:", res$return_code))
+  res <- res$par
   mat <- matrix(rep(0.0, 25), nrow=state_count)
   for(i in 1:state_count){mat[i,i] <- 1}
-  cnt <- 1
-  for(state in 1:state_count){
-    for(col in 1:state_count){
-      mat[state, col] <- as.numeric(res[paste0("probs[",state,",",col,"]")])
-      if(is.na(as.numeric(res[paste0("probs[",state,",",col,"]")]))){
-        print(paste(state, col))
-      }
-      #mat[cnt] <- as.numeric(res[paste0("D[",row,",",col,"]")])
-      #cnt = cnt + 1
+  for(state in 1:(state_count-1)){
+    for(col in 1:(state_count+1-state)){
+      mat[state, col + (state-1)] <- as.numeric(res[paste0("state_",state,"[",col,"]")])
     }
   }
   print("###########")

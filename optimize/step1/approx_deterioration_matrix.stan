@@ -46,17 +46,39 @@ transformed data {
 
 
 parameters {
-  simplex[n_states] probs[n_states];
+  simplex[5] state_1;
+  simplex[4] state_2;
+  simplex[3] state_3;
+  simplex[2] state_4;
 }
 
 transformed parameters {
   matrix[n_states, n_states] D;
   matrix[n_states, n_states] D_pow[N];
-  for(i in 1:n_states){
-   for(j in 1:n_states){
-     D[i,j] = probs[i, j];
-   }
+  
+  D[2, 1] = 0;
+  D[3, 1] = 0;
+  D[3, 2] = 0;
+  D[4, 1] = 0;
+  D[4, 2] = 0;
+  D[4, 3] = 0;
+  for(i in 1:5){
+    D[1, i] = state_1[i];
   }
+  for(i in 2:5){
+    D[2, i] = state_2[i-1];
+  }
+  for(i in 3:5){
+    D[3, i] = state_3[i-2];
+  }
+  for(i in 4:5){
+    D[4, i] = state_4[i-3];
+  }
+  for(i in 1:4){
+    D[5, i] = 0;
+  }
+  D[5, 5] = 1;
+
   for(i in 1:N){
     D_pow[i] = D * M;
     for(j in 2:time_obs[i]){
