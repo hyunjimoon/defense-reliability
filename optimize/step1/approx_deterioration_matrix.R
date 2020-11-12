@@ -47,7 +47,7 @@ for(engine_type in 1:5){
   res <- optimizing(model, opt_data)
   print(paste0("return code:", res$return_code))
   res <- res$par
-  mat <- matrix(rep(0.0, 25), nrow=state_count)
+  mat <- matrix(rep(0.0, n_states ** 2), nrow=state_count)
   for(i in 1:state_count){mat[i,i] <- 1}
   for(state in 1:(state_count-1)){
     for(col in 1:(state_count+1-state)){
