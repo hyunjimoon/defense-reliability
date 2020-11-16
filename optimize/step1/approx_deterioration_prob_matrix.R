@@ -2,7 +2,7 @@
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
-model <- stan_model(file.path(getwd(), "optimize/step1/D_rate_M.stan"), verbose = FALSE) #approx_deterioration_matrix
+model <- stan_model(file.path(getwd(), "optimize/step1/approx_deterioration_prob_matrix.stan"), verbose = FALSE) #approx_deterioration_matrix
 
 
 
@@ -34,18 +34,20 @@ generate_state_matrix <- function(data, n){
 }
 
 state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
-# one-hot encode to vector
+
 options(scipen = 999)
 
 for(engine_type in 1:5){
   states <- as.vector(t(state_matrix))[imputed_data$engine_ind == engine_type]
   onehot <- list()
+  # one-hot encode to vector
   for(i in 1:length(states)){
     t_tmp <- as.vector(rep(0, len=n_state))
     t_tmp[states[i]] <- 1
     onehot[[i]] <- t_tmp
   }
-  onehot_array<-array(unlist(onehot),c(length(onehot),n_state))
+  #onehot_array<-array(unlist(onehot),c(length(onehot),n_state))
+  onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot))))
   opt_data <- list(N=length(onehot), n_state=n_state, state_obs=onehot_array, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
   print("start sampling")
   res <- optimizing(model, opt_data)#, init=list(rate=rep(1.0, n_state-1)))
@@ -53,25 +55,19 @@ for(engine_type in 1:5){
   res["rate[1]"]
   print(paste0("return code:", res$return_code))
   res <- res$par
-  # mat <- matrix(rep(0.0, n_states ** 2), nrow=n_state)
-  # for(i in 1:n_state){mat[i,i] <- 1}
-  # for(state in 1:(n_state-1)){
-  #   for(col in 1:(n_state+1-state)){
-  #     mat[state, col + (state-1)] <- as.numeric(res[paste0("state_",state,"[",col,"]")])
-  #   }
-  # }
-  rate_matrix <- matrix(rep(0.0, n_state ** 2), nrow=n_state)
-  for(i in 1:(n_state-1)){
-    rate_matrix[i, i] = -as.numeric(res[paste0("rate","[",i,"]")]);
-    rate_matrix[i, i+1] = as.numeric(res[paste0("rate","[",i,"]")]);
+  mat <- matrix(rep(0.0, n_states ** 2), nrow=n_state)
+  for(i in 1:n_state){mat[i,i] <- 1}
+  for(state in 1:(n_state-1)){
+    for(col in 1:(n_state+1-state)){
+      mat[state, col + (state-1)] <- as.numeric(res[paste0("state_",state,"[",col,"]")])
+    }
   }
-  rate_matrix[n_state, n_state] = 1
   print("###########")
   print(engine_type)
-  #mat <- t(matrix(mat, nrow = 5))
-  #print(mat)
-  #print(rowSums(mat))
-  print(rate_matrix)
+  mat <- t(matrix(mat, nrow = 5))
+  print(mat)
+  print(rowSums(mat))
+  
 }
 
 #options(scipen=0)
