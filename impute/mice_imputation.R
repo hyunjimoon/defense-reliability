@@ -13,17 +13,13 @@ generateMice <- function(){
   y_ext <- as.array(as.matrix(y_ext_df))
   
   
-  age_ind = array(dim=31*99)
-  for(i in 1:31){
-    for(j in 1:99){
-      age_ind[(i-1)*99 + j] = i
-    }
-  }
-  ship_ind = array(dim=31*99)
+  age_ind <- array(dim=31*99)
+  ship_ind <- array(dim=31*99)
   
-  for(i in 1:31){
-    for(j in 1:99){
-      ship_ind[(i-1)*99 + j] = j
+  for(shiptype in 1:99){
+    for(date in 1:31){
+      ship_ind[(shiptype-1)*31 + date] <- shiptype
+      age_ind[(shiptype-1)*31 + date] <- date
     }
   }
   engine_ind = array(dim=31*99)

@@ -1,4 +1,7 @@
-#setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+if(Sys.info()['login'] == 'dashadower') {  # prevent unnecessary modifications
+  setwd('/home/dashadower/git_repos/aria/regression/failure_bma')
+} else setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+#########################
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
