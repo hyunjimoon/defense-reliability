@@ -5,7 +5,7 @@ data {
   int time_obs[N];
   int max_allowed_state;
   int repair_state;
-  int<lower=1, upper=n_state> initial_state;
+  int<lower=0, upper=n_state> initial_state;
 }
 
 transformed data {
@@ -63,9 +63,9 @@ transformed parameters {
 model {
   for(i in 1:N){
     if (time_obs[i] ==1){
-      target += -(initial' * D_pow[time_obs[i]] - state_obs[i]'); #how to prevent DM_pow[0]?
+      target += -(D_pow[time_obs[i]]*initial - state_obs[i])'*(D_pow[time_obs[i]]*initial - state_obs[i]); #how to prevent DM_pow[0]?
     }else{
-      target += -(initial' * DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] - state_obs[i]'); #how to prevent DM_pow[0]?
-    }
+      target += -(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial - state_obs[i])'*(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial - state_obs[i]);
   }
+}
 }

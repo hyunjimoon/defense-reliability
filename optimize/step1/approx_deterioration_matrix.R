@@ -1,3 +1,4 @@
+setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
@@ -34,8 +35,8 @@ generate_state_matrix <- function(data, n){
 
 state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
 # one-hot encode to vector
-
 options(scipen = 999)
+
 for(engine_type in 1:5){
   states <- as.vector(t(state_matrix))[imputed_data$engine_ind == engine_type]
   onehot <- list()
@@ -44,7 +45,8 @@ for(engine_type in 1:5){
     t_tmp[states[i]] <- 1
     onehot[[i]] <- t_tmp
   }
-  opt_data <- list(N=length(onehot), n_state=n_state, state_obs=onehot, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
+  onehot_array<-array(unlist(onehot),c(length(onehot),n_state))
+  opt_data <- list(N=length(onehot), n_state=n_state, state_obs=onehot_array, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
   res <- optimizing(model, opt_data)
   res["rate[1]"]
   print(paste0("return code:", res$return_code))
