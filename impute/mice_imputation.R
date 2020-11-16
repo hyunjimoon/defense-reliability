@@ -12,7 +12,6 @@ generateMice <- function(){
   y_ext_df <- read.csv(paste0(dataDir,"/y_count_original.csv"))[,-1]
   y_ext <- as.array(as.matrix(y_ext_df))
   
-  length(y_ext)
   
   age_ind = array(dim=31*99)
   for(i in 1:31){
@@ -37,7 +36,7 @@ generateMice <- function(){
   }
   y_data <- as.vector(y_ext)
   data_df <- data.frame(y_data, age_ind, ship_ind, engine_ind)
-  md.pattern(data_df)
+  #md.pattern(data_df)
   
   mice_imputed <- mice(data_df, m=2)
   

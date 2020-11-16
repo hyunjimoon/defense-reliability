@@ -82,7 +82,7 @@ transformed parameters {
   for(i in 1:N){
     D_pow[i] = D * M;
     for(j in 2:time_obs[i]){
-      D_pow[i] = D_pow[i] * D_pow[i];
+      D_pow[i] = D_pow[i] * (D*M);
     }
   }
 }

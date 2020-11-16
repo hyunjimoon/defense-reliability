@@ -44,7 +44,7 @@ parameters {
 
 transformed parameters {
   matrix[n_state, n_state] D_init = diag_matrix(rep_vector(1, n_state));
-  matrix[n_state, n_state] D_rate_c;
+  matrix[n_state, n_state] D_rate_c = rep_matrix(0, n_state, n_state);
   matrix[n_state, n_state] D_pow[max(time_obs)];
   matrix[n_state, n_state] DM_pow[max(time_obs)];
   for (i in 1:(n_state-1)){
@@ -53,19 +53,21 @@ transformed parameters {
   }
   D_rate_c[n_state,n_state] =1;
 
-  # M should be multiplied in rate
+  // M should be multiplied in rate
   for (i in 1:max(time_obs)){
     D_pow[i] = scale_matrix_exp_multiply(i,  D_rate_c, D_init);
     DM_pow[i] = scale_matrix_exp_multiply(i,  (D_rate_c * M), D_init);
   }
+  
 }
 
 model {
   for(i in 1:N){
     if (time_obs[i] ==1){
-      target += -(D_pow[time_obs[i]]*initial - state_obs[i])'*(D_pow[time_obs[i]]*initial - state_obs[i]); #how to prevent DM_pow[0]?
-    }else{
+      target += -(D_pow[time_obs[i]]*initial - state_obs[i])'*(D_pow[time_obs[i]]*initial - state_obs[i]); //how to prevent DM_pow[0]?
+    }
+    else{
       target += -(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial - state_obs[i])'*(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial - state_obs[i]);
-  }
+    }
 }
 }
