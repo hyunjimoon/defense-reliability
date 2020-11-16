@@ -24,11 +24,7 @@ generateMice <- function(){
   }
   engine_ind = array(dim=31*99)
   for(i in 1:length(engine_ind)){
-    if(i %% 99 == 0){
-      engine_ind[i] <- ship_engine_ind[99]
-      next
-    } 
-    engine_ind[i] <- ship_engine_ind[i %% 99]
+    engine_ind[i] = ship_engine_ind[ship_ind[i]]
   }
   y_data <- as.vector(y_ext)
   data_df <- data.frame(y_data, age_ind, ship_ind, engine_ind)
