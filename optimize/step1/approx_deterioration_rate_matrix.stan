@@ -34,7 +34,7 @@ transformed data {
 
 
 parameters {
-  vector[n_state-1] rate;
+  real<lower=0> rate[n_state-1];
   //matrix[n_state,n_state] D_rate;
   // simplex[5] state_1;
   // simplex[4] state_2;
