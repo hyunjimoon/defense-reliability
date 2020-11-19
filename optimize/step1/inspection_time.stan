@@ -39,7 +39,7 @@ transformed data {
 }
 
 parameters {
-   vector <lower =1, upper = max(time_obs)>[3] I_t;
+   vector <lower = 1, upper = max(time_obs)>[3] I_t;
 }
 
 transformed parameters {
@@ -49,17 +49,17 @@ transformed parameters {
   vector[n_state] t_p[max(time_obs)];
 
   for (i in 1:max(time_obs)){
-    D_pow[i] = scale_matrix_exp_multiply(i, D_rate, D_init);
+    D_pow[i] = scale_matrix_exp_multiply(i, D_rate, D_init); // state prob matrix after time i given chain started at time 0
     if (i ==1){
-      t_p[i] = D_pow[i]*initial;
+      t_p[i] = (D_pow[i])' * initial; // need to extract entire row not column, so we transpose
       DM_pow[i] = D_init * matrix_exp(D_rate);
     }else{
-      if (i == I_t[1]|| i == I_t[2]|| i == I_t[3]){
+      if (i == I_t[1]|| i == I_t[2]|| i == I_t[3]){ // !!!! ALWAYS FALSE(comparison of integer to a real value)
         DM_pow[i] = DM_pow[i-1] * matrix_exp(D_rate) * M;
       }else{
         DM_pow[i] = DM_pow[i-1] * matrix_exp(D_rate);
       }
-    t_p[i] = DM_pow[i-1] * D_pow[i] * initial;
+    t_p[i] = (DM_pow[i])' * initial;
     }
   }
 }
@@ -71,5 +71,4 @@ model {
 }
 
 generated quantities{
-  real total_cost = target;
 }

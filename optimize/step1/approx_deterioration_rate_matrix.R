@@ -63,7 +63,7 @@ for(engine_type in 1:5){
     rate_matrix[i, i] = -as.numeric(res[paste0("rate","[",i,"]")]);
     rate_matrix[i, i+1] = as.numeric(res[paste0("rate","[",i,"]")]);
   }
-  rate_matrix[n_state, n_state] = 1
+  rate_matrix[n_state, n_state] = 0
   print("###########")
   print(engine_type)
   print(rate_matrix)
@@ -94,7 +94,7 @@ for(i in 1:(n_state-1)){
   rate_matrix[i, i] = -as.numeric(res[paste0("rate","[",i,"]")]);
   rate_matrix[i, i+1] = as.numeric(res[paste0("rate","[",i,"]")]);
 }
-rate_matrix[n_state, n_state] = 1
+rate_matrix[n_state, n_state] = 0
 # if inspecition is preformed twice more
 D_rate <- rate_matrix
 n_state = 5
@@ -116,8 +116,14 @@ res_I_t$par["I_t[2]"]
 res_I_t$par["I_t[3]"]
 res_I_t$par["total_cost"]
 
+res_I_t$value # target value
 
-#최적값이 변동하는 문제점
-# target값 출력 희망
+
+for(i in 1:5){
+  print(i)
+  print(paste(lapply(1:5, function(x) res_I_t$par[paste0("t_p[",i,",",x,"]")]))) # check to make sure matrix is correct
+}
+#최적값이 변동하는 문제점 - 11/19:
+# target값 출력 희망 -- 11/19 해결완료
 # 결정변수를 시점이 아닌 주기로. if (i == I_t[1]|| i == I_t[2]|| i == I_t[3]) 을 era_1,2,3으로 나눠 각 구간에서 빈도를 결정변수로 바꾸는 방법시도
 
