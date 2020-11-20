@@ -39,27 +39,25 @@ transformed data {
 }
 
 parameters {
-   vector <lower = 1, upper = max(time_obs)>[3] I_t;
+   vector <lower = 1, upper = max(time_obs)>[10] I_t;
 }
+
 
 transformed parameters {
   matrix[n_state, n_state] D_init = diag_matrix(rep_vector(1, n_state));
   matrix[n_state, n_state] D_pow[max(time_obs)];
   matrix[n_state, n_state] DM_pow[max(time_obs)];
-  vector[n_state] t_p[max(time_obs)];
-
+  simplex[n_state] t_p[max(time_obs)];
+  
   for (i in 1:max(time_obs)){
-    D_pow[i] = scale_matrix_exp_multiply(i, D_rate, D_init); // state prob matrix after time i given chain started at time 0
     if (i ==1){
-      t_p[i] = (D_pow[i])' * initial; // need to extract entire row not column, so we transpose
-      DM_pow[i] = D_init * matrix_exp(D_rate);
+      t_p[i] = matrix_exp(D_rate) * initial; // matrix * bf_state -> state
     }else{
-      if (i == I_t[1]|| i == I_t[2]|| i == I_t[3]){ // !!!! ALWAYS FALSE(comparison of integer to a real value)
-        DM_pow[i] = DM_pow[i-1] * matrix_exp(D_rate) * M;
+     if (((i <= I_t[1]) && (I_t[1] < (i+1))) || ((i <= I_t[2]) && (I_t[2] < (i+1))) || ((i <= I_t[3]) && (I_t[3] < (i+1))) || ((i <= I_t[4]) && (I_t[4] < (i+1))) || ((i <= I_t[5]) && (I_t[5] < (i+1))) || ((i <= I_t[6]) && (I_t[6] < (i+1))) || ((i <= I_t[7]) && (I_t[7] < (i+1))) || ((i <= I_t[8]) && (I_t[8] < (i+1))) || ((i <= I_t[9]) && (I_t[9] < (i+1))) || ((i <= I_t[10]) && (I_t[10] < (i+1)))){ // need better 
+        t_p[i] =  matrix_exp(D_rate) * M * t_p[i-1];
       }else{
-        DM_pow[i] = DM_pow[i-1] * matrix_exp(D_rate);
+        t_p[i] = matrix_exp(D_rate) * t_p[i-1];
       }
-    t_p[i] = (DM_pow[i])' * initial;
     }
   }
 }
