@@ -5,6 +5,7 @@ if(Sys.info()['login'] == 'dashadower') {  # prevent unnecessary modifications
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
+library(ggplot2)
 model <- stan_model(file.path(getwd(), "optimize/step1/approx_deterioration_rate_matrix.stan"), verbose = FALSE) #approx_deterioration_matrix
 
 
@@ -103,6 +104,7 @@ repair_state = 2
 pm_state = 4
 cm_state = 5
 initial_state = 1
+
 model_I_t <- stan_model(file.path(getwd(), "optimize/step1/inspection_time.stan"), verbose = FALSE) #approx_deterioration_matrix
 
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot))))
@@ -111,19 +113,24 @@ opt_data_I_t <- list(N=length(onehot), n_state=n_state, state_obs=onehot_array, 
 print("start sampling")
 res_I_t <- optimizing(model_I_t, opt_data_I_t)#, init=list(rate=rep(1.0, n_state-1)))
 print("end sampling")
-res_I_t$par["I_t[1]"]
-res_I_t$par["I_t[2]"]
-res_I_t$par["I_t[3]"]
-res_I_t$par["total_cost"]
+
 
 res_I_t$value # target value
 
-
-for(i in 1:5){
+xvals <- as.vector(1:30)
+e_state <- vector()
+for(i in 1:30){
+  print("-----------")
   print(i)
-  print(paste(lapply(1:5, function(x) res_I_t$par[paste0("t_p[",i,",",x,"]")]))) # check to make sure matrix is correct
+  print(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")])))
+  print(sum(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")]))))
+  e_state[i] <- as.vector(1:5) %*% as.vector(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")])))
+  #e_state[i] <- which.max(as.vector(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")]))))
 }
-#최적값이 변동하는 문제점 - 11/19:
-# target값 출력 희망 -- 11/19 해결완료
+
+
 # 결정변수를 시점이 아닌 주기로. if (i == I_t[1]|| i == I_t[2]|| i == I_t[3]) 을 era_1,2,3으로 나눠 각 구간에서 빈도를 결정변수로 바꾸는 방법시도
 
+I_t <- sort(unlist(lapply(1:10, function(x) res_I_t$par[paste0("I_t[",x,"]")])))
+ggplot() + aes(x=xvals, y=e_state) + geom_line() + geom_point(color="red") + ggtitle(paste("Expected state at time t target:", res_I_t$value)) +
+  geom_vline(xintercept = I_t, linetype="dashed") + ylim(1, 5)
