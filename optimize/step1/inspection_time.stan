@@ -52,14 +52,7 @@ transformed parameters {
     }else{
       for(j in 1:interval_cnt){
         if(i <= I_t[j] && I_t[j] < (i+1)){
-          //t_p[i] =  matrix_exp(M) * t_p[i-1];
-          ////////////////////
-          t_p[i] = matrix_exp(D_rate) * t_p[i-1];
-          for(k in (max_allowed_state+1):n_state){
-            for(l in 1:n_state){
-              t_p[i][k, l] = t_p[i][repair_state, l];
-            }
-          }
+          t_p[i] =  matrix_exp(M) * t_p[i-1];
           break;
         }
         else if(j == interval_cnt){
