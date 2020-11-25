@@ -1,10 +1,12 @@
 data {
   int<lower=0> N; // numbmer of observations
   int<lower=1>n_state; // number of states
-  vector[5] state_obs[N];
+  vector[n_state] state_obs[N];
   int time_obs[N];
   int max_allowed_state;
   int repair_state;
+  int pm_state;
+  int cm_state;
   int<lower=0, upper=n_state> initial_state;
 }
 
@@ -21,25 +23,20 @@ transformed data {
 
   for(i in 1:n_state){
     for(j in 1:n_state){
-      M[i, j] = 0;
+      if (i==j && i<= max_allowed_state){
+        M[i, i] = 1;
+      }
+      else if (j==repair_state && i>max_allowed_state ){
+        M[i, j] = 1;
+      }
+      else M[i, j] = 0;
     }
-  }
-  for(i in 1:max_allowed_state){
-    M[i, i] = 1;
-  }
-  for(i in (max_allowed_state+1):n_state){
-    M[i, repair_state] = 1;
   }
 }
 
 
 parameters {
   real<lower=0> rate[n_state-1];
-  //matrix[n_state,n_state] D_rate;
-  // simplex[5] state_1;
-  // simplex[4] state_2;
-  // simplex[3] state_3;
-  // simplex[2] state_4;
 }
 
 transformed parameters {
@@ -51,14 +48,13 @@ transformed parameters {
     D_rate_c[i,i] = -rate[i];
     D_rate_c[i,i+1] = rate[i];
   }
-  D_rate_c[n_state,n_state] =1;
+  D_rate_c[n_state,n_state] =0;
 
   // M should be multiplied in rate
   for (i in 1:max(time_obs)){
     D_pow[i] = scale_matrix_exp_multiply(i,  D_rate_c, D_init);
     DM_pow[i] = scale_matrix_exp_multiply(i,  (D_rate_c * M), D_init);
   }
-  
 }
 
 model {
