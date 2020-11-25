@@ -8,14 +8,12 @@ library(rstan)
 library(ggplot2)
 model <- stan_model(file.path(getwd(), "optimize/step1/approx_deterioration_rate_matrix.stan"), verbose = FALSE) #approx_deterioration_matrix
 
-
-
 mice_imp <- generateMice()
 imputed_data <- complete(mice_imp, 1)
 
 ####################################
-n_state = 5
-max_allowed_state = 3
+n_state = 7
+max_allowed_state = 4
 repair_state = 2
 initial_state = 1
 
@@ -83,7 +81,7 @@ for(i in 1:length(states)){
 }
 #onehot_array<-array(unlist(onehot),c(length(onehot),n_state))  # array() fills column-wise first
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot))))
-opt_data <- list(N=length(onehot), n_state=n_state, state_obs=onehot_array, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
+opt_data <- list(N=sum(imputed_data$engine_ind == engine_type), n_state=n_state, state_obs=onehot_array, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state)
 print("start sampling")
 res <- optimizing(model, opt_data)#, init=list(rate=rep(1.0, n_state-1)))
 print("end sampling")
@@ -98,11 +96,11 @@ for(i in 1:(n_state-1)){
 rate_matrix[n_state, n_state] = 0
 # if inspecition is preformed twice more
 D_rate <- rate_matrix
-n_state = 5
-max_allowed_state = 3
+n_state = 7
+max_allowed_state = 4 # = pm_state
 repair_state = 2
-pm_state = 4
-cm_state = 5
+pm_state = 3
+cm_state = max_allowed_state + 1
 initial_state = 1
 
 model_I_t <- stan_model(file.path(getwd(), "optimize/step1/inspection_time.stan"), verbose = FALSE) #approx_deterioration_matrix
@@ -128,9 +126,8 @@ for(i in 1:30){
   #e_state[i] <- which.max(as.vector(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")]))))
 }
 
-
 # 결정변수를 시점이 아닌 주기로. if (i == I_t[1]|| i == I_t[2]|| i == I_t[3]) 을 era_1,2,3으로 나눠 각 구간에서 빈도를 결정변수로 바꾸는 방법시도
 
 I_t <- sort(unlist(lapply(1:10, function(x) res_I_t$par[paste0("I_t[",x,"]")])))
 ggplot() + aes(x=xvals, y=e_state) + geom_line() + geom_point(color="red") + ggtitle(paste("Expected state at time t target:", res_I_t$value)) +
-  geom_vline(xintercept = I_t, linetype="dashed") + ylim(1, 5)
+  geom_vline(xintercept = I_t, linetype="dashed") + ylim(1, n_state)
