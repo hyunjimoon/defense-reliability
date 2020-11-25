@@ -49,11 +49,14 @@ transformed parameters {
     D_rate_c[i,i+1] = rate[i];
   }
   D_rate_c[n_state,n_state] =0;
+  
+  D_pow[1] = scale_matrix_exp_multiply(1,  D_rate_c, D_init);
+  DM_pow[1] = M * scale_matrix_exp_multiply(1,  D_rate_c, D_init);
 
   // M should be multiplied in rate
-  for (i in 1:max(time_obs)){
-    D_pow[i] = scale_matrix_exp_multiply(i,  D_rate_c, D_init);
-    DM_pow[i] = scale_matrix_exp_multiply(i,  (D_rate_c * M), D_init);
+  for (i in 2:max(time_obs)){
+    D_pow[i] = matrix_exp(D_rate_c)*D_pow[i-1];
+    DM_pow[i] = M * matrix_exp(D_rate_c) * DM_pow[i-1];
   }
 }
 
