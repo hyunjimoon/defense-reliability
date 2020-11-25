@@ -5,8 +5,6 @@ data {
   int time_obs[N];
   int max_allowed_state;
   int repair_state;
-  int pm_state;
-  int cm_state;
   int<lower=0, upper=n_state> initial_state;
 }
 
