@@ -12,8 +12,8 @@ data {
 }
 
 transformed data {
-  int cm_cost = 1;
-  int pm_cost = 2;
+  int cm_cost = 10;
+  int pm_cost = 1;
   int interval_cnt = 10;
   //int change_t = 21; //[2];
   vector[n_state] initial;
@@ -28,19 +28,21 @@ transformed data {
 
   for(i in 1:n_state){
     for(j in 1:n_state){
-      M[i, j] = D_rate[i, j];
+      M[i, j] = 0;
     }
   }
+  for(i in 1:max_allowed_state){
+    M[i, i] = 1;
+  }
   for(i in (max_allowed_state+1):n_state){
-    M[i, min(n_state, i+1)] = 0;
-    M[i, repair_state] = fabs(M[i, i]);
+    M[i, repair_state] = 1;
   }
 }
 
-parameters {
-   vector <lower = 1, upper = max(time_obs)>[interval_cnt] I_t; // interval_cnt is in transformed data
-}
 
+parameters {
+   ordered[interval_cnt] I_t; //  <lower = 1, upper = max(time_obs)> interval_cnt is in transformed data
+}
 
 transformed parameters {
   matrix[n_state, n_state] D_init = diag_matrix(rep_vector(1, n_state));
@@ -52,11 +54,11 @@ transformed parameters {
     }else{
       for(j in 1:interval_cnt){
         if(i <= I_t[j] && I_t[j] < (i+1)){
-          t_p[i] =  matrix_exp(M) * t_p[i-1];
+          t_p[i] = M *  matrix_exp(D_rate) * t_p[i-1];
           break;
         }
         else if(j == interval_cnt){
-          t_p[i] = matrix_exp(D_rate) * t_p[i-1];
+          t_p[i] = matrix_exp(D_rate) * t_p[i-1]; 
         }
       }
     }
@@ -65,11 +67,9 @@ transformed parameters {
 }
 
 model {
-  for(i in 1:N){
-    target += -(pm_cost * (state_t[time_obs[i]])[pm_state] + cm_cost * (state_t[time_obs[i]])[cm_state]);
+  for(i in 1:N)
+    target += - (pm_cost * (state_t[time_obs[i]])[pm_state:cm_state] + cm_cost * (state_t[time_obs[i]])[cm_state+1:]);
   }
-}
 
 generated quantities{
 }
-
