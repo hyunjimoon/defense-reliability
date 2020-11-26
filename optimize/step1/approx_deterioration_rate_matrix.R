@@ -103,7 +103,7 @@ pm_state = 3
 cm_state = max_allowed_state + 1
 initial_state = 1
 
-model_I_t <- stan_model(file.path(getwd(), "optimize/step1/inspection_time.stan"), verbose = FALSE) #approx_deterioration_matrix
+model_I_t <- stan_model(file.path(getwd(), "optimize/step1/inspection_interval.stan"), verbose = FALSE) #approx_deterioration_matrix
 
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot))))
 opt_data_I_t <- list(N=length(onehot), n_state=n_state, state_obs=onehot_array, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], max_allowed_state=max_allowed_state, repair_state=repair_state, initial_state=initial_state,
@@ -115,14 +115,14 @@ print("end sampling")
 
 res_I_t$value # target value
 
-xvals <- as.vector(1:30)
+xvals <- as.vector(1:31)
 e_state <- vector()
-for(i in 1:30){
+for(i in 1:31){
   print("-----------")
   print(i)
-  print(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")])))
-  print(sum(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")]))))
-  e_state[i] <- as.vector(1:5) %*% as.vector(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")])))
+  print(unlist(lapply(1:n_state, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")])))
+  print(sum(unlist(lapply(1:n_state, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")]))))
+  e_state[i] <- as.vector(1:n_state) %*% as.vector(unlist(lapply(1:n_state, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")])))
   #e_state[i] <- which.max(as.vector(unlist(lapply(1:5, function(x) res_I_t$par[paste0("state_t[",i,",",x,"]")]))))
 }
 
@@ -131,3 +131,7 @@ for(i in 1:30){
 I_t <- sort(unlist(lapply(1:10, function(x) res_I_t$par[paste0("I_t[",x,"]")])))
 ggplot() + aes(x=xvals, y=e_state) + geom_line() + geom_point(color="red") + ggtitle(paste("Expected state at time t target:", res_I_t$value)) +
   geom_vline(xintercept = I_t, linetype="dashed") + ylim(1, n_state)
+
+
+
+

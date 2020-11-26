@@ -16,23 +16,20 @@ transformed data {
   int pm_cost = 1;
   int interval_cnt = 10;
   int n_era = 2;
-  vector[n_era -1] b_era = [20]';
+  row_vector[n_era] b_era = [20, max(time_obs)];
   //int change_t = 21; //[2];
-  vector[n_state] initial;
+  vector[n_state] initial = rep_vector(0, n_state);
   matrix[n_state, n_state] M;
   int cnt = 0;
-  for(i in 1:n_state){
-    initial[i] = 0;
-    if(i == initial_state){
-      initial[i] = 1;
-    }
-  }
+  initial[initial_state] = 1;
+  // for(i in 1:n_state){
+  //   initial[i] = 0;
+  //   if(i == initial_state){
+  //     initial[i] = 1;
+  //   }
+  // }
 
-  for(i in 1:n_state){
-    for(j in 1:n_state){
-      M[i, j] = 0;
-    }
-  }
+  M = rep_matrix(0, n_state, n_state);
   for(i in 1:max_allowed_state){
     M[i, i] = 1;
   }
@@ -44,7 +41,7 @@ transformed data {
 
 parameters {
    //vector <lower = 1, upper = max(time_obs)> [interval_cnt] I_t; //  <lower = 1, upper = max(time_obs)> interval_cnt is in transformed data
-   vector <lower =1, upper = max(time_obs)>[n_era] interval;
+   vector <lower =1, upper = 10>[max(time_obs)] interval;
 }
 
 transformed parameters {
@@ -55,23 +52,30 @@ transformed parameters {
   for (i in 1:max(time_obs)){
     if (i ==1){
       t_p[i] = matrix_exp(D_rate); // matrix * bf_state -> state
-    }else{
-      for(e in 1:n_era -2){
-        if(b_era[e] < i && i <=  b_era[e+1]){
-          if(i % int(interval[e]) ==0){
-            t_p[i] = matrix_exp(D_rate) * t_p[i-1];
+    }
+    else{
+      for(j in 1:n_era){
+        if(i <= b_era[j]){
+          if(fmod(i, round(interval[j])) == 0){  // Not recommended, not good :(
+            //t_p[i] = matrix_exp(D_rate) * t_p[i-1];
+            t_p[i] = M *  matrix_exp(D_rate) * t_p[i-1];
           }else{
-             t_p[i] = M *  matrix_exp(D_rate) * t_p[i-1];
-             break;
+            t_p[i] = matrix_exp(D_rate) * t_p[i-1];
           }
+          break;
         }
+        else{
+          continue;
+        }
+      }
     }
     state_t[i] = t_p[i]' * initial;
-   }
   }
+}
 model {
   for(i in 1:N)
-    target += - (pm_cost * (state_t[time_obs[i]])[pm_state:cm_state] + cm_cost * (state_t[time_obs[i]])[cm_state+1:]);
+    #target += - (rep_row_vector(pm_cost, cm_state-pm_state+1) * (state_t[time_obs[i]])[pm_state:cm_state] + rep_row_vector(cm_cost, n_state-cm_state) * (state_t[time_obs[i]])[cm_state+1:]);
+    target += - (sum(pm_cost * (state_t[time_obs[i]])[pm_state:cm_state]) + sum(cm_cost * (state_t[time_obs[i]])[cm_state+1:]));
   }
 
 generated quantities{
