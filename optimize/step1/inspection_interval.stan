@@ -41,7 +41,7 @@ transformed data {
 
 parameters {
    //vector <lower = 1, upper = max(time_obs)> [interval_cnt] I_t; //  <lower = 1, upper = max(time_obs)> interval_cnt is in transformed data
-   vector <lower =1, upper = 10>[max(time_obs)] interval;
+   vector <lower =1, upper = max(time_obs)>[n_era] interval;
 }
 
 transformed parameters {
