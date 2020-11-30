@@ -12,7 +12,7 @@ mice_imp <- generateMice()
 imputed_data <- complete(mice_imp, 1)
 
 ####################################
-n_state = 2
+n_state = 5
 max_allowed_state = 4
 repair_state = 2
 initial_state = 1
