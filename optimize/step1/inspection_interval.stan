@@ -76,7 +76,7 @@ model {
   for(i in 1:N)
     #target += - (rep_row_vector(pm_cost, cm_state-pm_state+1) * (state_t[time_obs[i]])[pm_state:cm_state] + rep_row_vector(cm_cost, n_state-cm_state) * (state_t[time_obs[i]])[cm_state+1:]);
     target += - (sum(pm_cost * (state_t[time_obs[i]])[pm_state:cm_state]) + sum(cm_cost * (state_t[time_obs[i]])[cm_state+1:]));
-  }
+}
 
 generated quantities{
 }
