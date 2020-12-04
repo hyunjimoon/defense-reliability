@@ -3,10 +3,10 @@ data {
   int<lower=1>n_state; // number of states
   vector[n_state] state_obs[N];
   int time_obs[N];
-  int max_allowed_state;
-  int repair_state;
-  int pm_state;
-  int cm_state;
+  int pm_repair;
+  int cm_repair;
+  int pm_init;
+  int cm_init;
   int<lower=0, upper=n_state> initial_state;
   matrix[n_state, n_state] D_rate;
 }
@@ -26,11 +26,14 @@ transformed data {
   b_era[2] = max(time_obs);
 
   M = rep_matrix(0, n_state, n_state);
-  for(i in 1:max_allowed_state){
+  for(i in 1:(cm_init -1)){
     M[i, i] = 1;
   }
-  for(i in (max_allowed_state+1):n_state){
-    M[i, repair_state] = 1;
+  for(i in pm_init:(cm_init -1)){
+    M[i, pm_repair] = 1;
+  }
+  for(i in cm_init:n_state){
+    M[i, cm_repair] = 1;
   }
 }
 
@@ -51,7 +54,11 @@ generated quantities{
   matrix[max_interval, max_interval] cost = rep_matrix(0, max_interval, max_interval);
 
   for(i1 in 1:max_interval){ // interval 1
-    for(i2 in 1:max_interval){ // interval 2
+    for(i2 in 1:max_interval){// interval 2
+      if (b_era[1]/i1+(b_era[2]-b_era[1])/i2 > max(time_obs)) {
+        cost[i1,i2] = positive_infinity();
+        continue;
+      }
       for (t in 1:max(time_obs)){
         if (t == 1){
           t_p[t] = matrix_exp(D_rate); // matrix * bf_state -> state
@@ -82,7 +89,7 @@ generated quantities{
         
       }
       for(i in 1:N){
-        cost[i1, i2] = cost[i1, i2] + sum(state_t[time_obs[N]][pm_state:cm_state]) * pm_cost + sum(state_t[time_obs[N]][cm_state:]) * cm_cost;
+        cost[i1, i2] = cost[i1, i2] + sum(state_t[time_obs[N]][pm_init:(cm_init - 1)]) * pm_cost + sum(state_t[time_obs[N]][cm_init:]) * cm_cost;
       }
     }
   }
