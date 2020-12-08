@@ -55,12 +55,34 @@ pm_init = 3
 cm_init = 5
 initial_state = 1
 
-model_fixedI <- stan_model(file.path(getwd(), "optimize/step1/inspection_interval_marginalize.stan"), verbose = TRUE)
-
+model_fixedI <- stan_model(file.path(getwd(), "optimize/step1/inspection_interval_marginalize.stan"), verbose = FALSE)
 
 opt_data_I_t <- list(N=length(onehot), n_state=n_state, state_obs=onehot_array, time_obs=imputed_data$age_ind[imputed_data$engine_ind == engine_type], 
                      cm_init = cm_init, pm_init = pm_init, cm_repair = cm_repair, pm_repair = pm_repair, initial_state=initial_state, D_rate = D_rate)
 
 comb_res <- rstan::sampling(model_fixedI, opt_data_I_t, algorithm="Fixed_param", chains=1, iter = 100)
-sum <- summary(comb_res, c("cost"))$summary
+options(scipen=999)
+sum <- summary(comb_res, c("cost", "state_t", "t_p"))$summary
+cost_arr <- array(dim=c(10, 10))
+state_arr <- array(dim=c(30, n_state))
 
+for(i1 in 1:10){
+  for(i2 in 1:10){
+    cost_arr[i1, i2] <- sum[, "mean"][paste0("cost[",i1,",",i2,"]")]
+  }
+}
+cost_arr  # row: interval1, col: interval2
+min_col <- which.min(cost_arr) %/% 10
+min_row <- which.min(cost_arr) - min_col * 10
+print(paste("min", min_row, min_col+1, cost_arr[which.min(cost_arr)]))
+
+for(t in 1:30){
+  for(y in 1:n_state){
+    res <- as.numeric(lapply(1:5, function(x)sum[, "mean"][[paste0("t_p[",t,",",y,",",x, "]")]]))
+    if(!all.equal(sum(res), 1)){
+      print(paste(t, y, sum(res)))
+    }
+  }
+  state_arr[t, ] <- as.numeric(lapply(1:n_state, function(x)sum[, "mean"][[paste0("state_t[",t,",",x,"]")]]))
+}
+state_arr  # row: time, col: state

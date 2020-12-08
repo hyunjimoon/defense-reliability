@@ -12,12 +12,12 @@ data {
 }
 
 transformed data {
-  int cm_cost = 2;
-  int pm_cost = 1;
-  int inspection_cost = 7;
+  int cm_cost = 40;
+  int pm_cost = 10;
+  int inspection_cost = 1;
   int n_era = 2;
   int max_interval = 10;
-  int b_era[n_era];
+  int b_era[n_era];  // upper bound for each interval
   vector[n_state] initial = rep_vector(0, n_state);
   matrix[n_state, n_state] M;
   initial[initial_state] = 1;
@@ -26,7 +26,7 @@ transformed data {
   b_era[2] = max(time_obs);
 
   M = rep_matrix(0, n_state, n_state);
-  for(i in 1:(cm_init -1)){
+  for(i in 1:(pm_init - 1)){
     M[i, i] = 1;
   }
   for(i in pm_init:(cm_init -1)){
@@ -34,6 +34,11 @@ transformed data {
   }
   for(i in cm_init:n_state){
     M[i, cm_repair] = 1;
+  }
+  for(r in 1:n_state){  // Verify Maintenance matrix for errors
+    if(sum(M[r, 1:n_state]) != 1){
+      reject("A row of maintenance failed rowSum() == 1 check. row number=", r);
+    }
   }
 }
 
@@ -52,10 +57,15 @@ generated quantities{
   matrix[n_state, n_state] t_p_raw[max(time_obs)]; // transition probability without repairs at all
   vector[n_state] state_t[max(time_obs)]; // state at time t
   matrix[max_interval, max_interval] cost = rep_matrix(0, max_interval, max_interval);
-
+  // matrix[n_state, n_state] M_test;
+  // for(r in 1:n_state){
+  //   for(c in 1:n_state){
+  //     M_test[r, c] = M[r, c];
+  //   }
+  // }
   for(i1 in 1:max_interval){ // interval 1
     for(i2 in 1:max_interval){// interval 2
-      if (b_era[1]/i1+(b_era[2]-b_era[1])/i2 > max(time_obs)) {
+      if (b_era[1]/i1+(b_era[2]-b_era[1])/i2 < 10) {
         cost[i1,i2] = positive_infinity();
         continue;
       }
