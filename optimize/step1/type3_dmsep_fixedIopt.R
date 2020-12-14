@@ -77,15 +77,18 @@ for(i1 in 1:8){
   }
 cost_arr  # row: interval1, col: interval2
 
-min_i =  which.min(cost_arr)
-min_idx = rep(0,4)
-for(i in 1:4){
-  min_idx[i] = min_i %/% 8^(4-i)
-  print(min_idx[i])
-  min_i = min_i - min_idx[i] *  8^(4-i)
-  print(min_i)
-}
-print(paste("min", min_idx[1] + 1, min_idx[2]+1,  min_idx[3]+1,  min_idx[4]+1, "cost", cost_arr[which.min(cost_arr)]))
+# min_i =  which.min(cost_arr)
+# min_idx = rep(0,4)
+# for(i in 1:4){
+#   min_idx[i] = min_i %/% 8^(4-i)
+#   print(min_idx[i])
+#   min_i = min_i - min_idx[i] *  8^(4-i)
+#   print(min_i)
+# }
+# print(paste("min", min_idx[1] + 1, min_idx[2]+1,  min_idx[3]+1,  min_idx[4]+1, "cost", cost_arr[which.min(cost_arr)]))
+
+which(cost_arr == min(cost_arr), arr.ind=TRUE)
+print(min(cost_arr))
 
 for(t in 1:30){
   for(y in 1:n_state){
@@ -95,5 +98,7 @@ for(t in 1:30){
     }
   }
   state_arr[t, ] <- as.numeric(lapply(1:n_state, function(x)sum[, "mean"][[paste0("state_t[",t,",",x,"]")]]))
+  #print(paste(t, sum(state_arr[t, ])))
+  print(state_arr[t, ])
 }
-state_arr  # row: time, col: state
+#state_arr  # row: time, col: state

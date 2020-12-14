@@ -55,14 +55,8 @@ generated quantities{
   matrix[n_state, n_state] t_p[max(time_obs)]; // transition probability at time t
   vector[n_state] state_t[max(time_obs)]; // state at time t
   vector[n_state] state_t_NM;
-  matrix[max_interval, max_interval] cost[max_interval, max_interval]; #check init to 0 
+  matrix[max_interval, max_interval] cost[max_interval, max_interval]; //check init to 0 
   //matrix[max_interval,max_interval,max_interval,max_interval]cost; : rep_matrix(0, max_interval, max_interval),max_interval,max_interval);
-  // matrix[n_state, n_state] M_test;
-  // for(r in 1:n_state){
-  //   for(c in 1:n_state){
-  //     M_test[r, c] = M[r, c];
-  //   }
-  // }
   for (a in 1:max_interval){
     for (b in 1:max_interval){
      cost[a,b] = rep_matrix(0, max_interval, max_interval);
@@ -72,7 +66,7 @@ generated quantities{
     for(i2 in 1:max_interval){// interval 2
       for(i3 in 1:max_interval){ // interval 1
         for(i4 in 1:max_interval){// interval 2
-          if (i1 + i2 + i3 + i4 > 20) { #TODO could be improved
+          if (i1 + i2 + i3 + i4 > 20) { // TODO could be improved
             cost[i1,i2,i3,i4] = positive_infinity();
             continue;
           }
@@ -80,18 +74,17 @@ generated quantities{
           for (t in 1:max(time_obs)){
             if (t == 1){
               t_p[t] = matrix_exp(D_rate); // matrix * bf_state -> state
-              state_t[t] = t_p[t] * state_0; // matrix * bf_state -> state #t_p[t];
+              state_t[t] = t_p[t]' * state_0; // matrix * bf_state -> state #t_p[t];
             }
             
             else{
-                t_p[t] = matrix_exp(D_rate) * t_p[t-1];
-                state_t[t] = t_p[t] * state_t[t-1];
-                
-              if ((t%9==0)||(t % i1 == 0 && t < 9) || ((t-9) % i2 == 0 && t > 9 && t <18) || ((t-18) % i3 == 0 &&  t > 18 && t <27) || ((t-27) % i4 == 0 && t >27)){
-                  state_t[t] = M * state_t[t];
-                  state_t_NM = t_p[t] * state_t[t-1];
-                  cost[i1,i2,i3,i4] = cost[i1,i2,i3,i4] + inspection_cost + pm_cost * sum((state_t[t] - state_t_NM)[pm_init:(cm_init - 1)]) + cm_cost * sum((state_t[t] - state_t_NM)[cm_init:]);
-                }
+              t_p[t] = matrix_exp(D_rate) * t_p[t-1];
+              state_t[t] = t_p[t]' * state_t[t-1];
+              if ((t%9==0)||(t % i1 == 0 && t <= 9) || ((t-9) % i2 == 0 && t > 9 && t <= 18) || ((t-18) % i3 == 0 &&  t > 18 && t <= 27) || ((t-27) % i4 == 0 && t >27)){
+                state_t[t] = M' * state_t[t];
+                state_t_NM = t_p[t] * state_t[t-1];
+                cost[i1,i2,i3,i4] = cost[i1,i2,i3,i4] + inspection_cost + pm_cost * sum((state_t_NM - state_t[t])[pm_init:(cm_init - 1)]) + cm_cost * sum((state_t_NM - state_t[t])[cm_init:]);
+              }
             }
           }
         }
