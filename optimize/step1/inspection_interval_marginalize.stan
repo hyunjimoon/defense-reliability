@@ -55,7 +55,9 @@ generated quantities{
   matrix[n_state, n_state] t_p[max(time_obs)]; // transition probability at time t
   vector[n_state] state_t[max(time_obs)]; // state at time t
   vector[n_state] state_t_NM;
-  matrix[max_interval, max_interval] cost[max_interval, max_interval]; //check init to 0 
+  matrix[max_interval, max_interval] cost[max_interval, max_interval]; //check init to 0
+  real M_cost;
+  real NM_cost;
   //matrix[max_interval,max_interval,max_interval,max_interval]cost; : rep_matrix(0, max_interval, max_interval),max_interval,max_interval);
   for (a in 1:max_interval){
     for (b in 1:max_interval){
@@ -70,7 +72,8 @@ generated quantities{
             cost[i1,i2,i3,i4] = positive_infinity();
             continue;
           }
-          
+          M_cost = 0;
+          NM_cost = 0;
           for (t in 1:max(time_obs)){
             if (t == 1){
               t_p[t] = matrix_exp(D_rate); // matrix * bf_state -> state
@@ -80,10 +83,12 @@ generated quantities{
             else{
               t_p[t] = matrix_exp(D_rate) * t_p[t-1];
               state_t[t] = t_p[t]' * state_t[t-1];
-              if ((t%9==0)||(t % i1 == 0 && t <= 9) || ((t-9) % i2 == 0 && t > 9 && t <= 18) || ((t-18) % i3 == 0 &&  t > 18 && t <= 27) || ((t-27) % i4 == 0 && t >27)){
+              state_t_NM = t_p[t]' * state_t[t-1];
+              if ((t%9==0)||(t % i1 == 0 && t <= 7) || ((t-7) % i2 == 0 && t > 7 && t <= 20) || ((t-20) % i3 == 0 &&  t > 20 && t <= 27) || ((t-27) % i4 == 0 && t >27)){
                 state_t[t] = M' * state_t[t];
-                state_t_NM = t_p[t] * state_t[t-1];
-                cost[i1,i2,i3,i4] = cost[i1,i2,i3,i4] + inspection_cost + pm_cost * sum((state_t_NM - state_t[t])[pm_init:(cm_init - 1)]) + cm_cost * sum((state_t_NM - state_t[t])[cm_init:]);
+                M_cost = M_cost + inspection_cost + pm_cost * sum(state_t[t][pm_init:(cm_init - 1)]) + cm_cost * sum(state_t[t][cm_init:]);
+                NM_cost = NM_cost + inspection_cost + pm_cost * sum(state_t_NM[pm_init:(cm_init - 1)]) + cm_cost * sum(state_t_NM[cm_init:]);
+                cost[i1, i2, i3, i4] = cost[i1, i2, i3, i4] + NM_cost - M_cost; // NM - M vs M - NM?
               }
             }
           }
