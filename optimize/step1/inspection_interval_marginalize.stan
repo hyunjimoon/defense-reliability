@@ -15,15 +15,17 @@ transformed data {
   int cm_cost = 40;
   int pm_cost = 10;
   int inspection_cost = 1;
-  int n_era = 2;
   int max_interval = 8;
+  int n_era = 4;
   int b_era[n_era];  // upper bound for each interval
   vector[n_state] state_0 = rep_vector(0, n_state);
   matrix[n_state, n_state] M;
   state_0[initial_state] = 1;
 
-  b_era[1] = 20;
-  b_era[2] = max(time_obs);
+  b_era[1] = 7;
+  b_era[2] = 20;
+  b_era[3] = 27;
+  b_era[4] = max(time_obs);
 
   M = rep_matrix(0, n_state, n_state);
   for(i in 1:(pm_init - 1)){
@@ -58,6 +60,8 @@ generated quantities{
   matrix[max_interval, max_interval] cost[max_interval, max_interval]; //check init to 0
   real M_cost;
   real NM_cost;
+  real best_M_cost = positive_infinity();
+  vector[n_state] best_state_t[max(time_obs)];
   //matrix[max_interval,max_interval,max_interval,max_interval]cost; : rep_matrix(0, max_interval, max_interval),max_interval,max_interval);
   for (a in 1:max_interval){
     for (b in 1:max_interval){
@@ -82,14 +86,21 @@ generated quantities{
             
             else{
               t_p[t] = matrix_exp(D_rate) * t_p[t-1];
-              state_t[t] = t_p[t]' * state_t[t-1];
-              state_t_NM = t_p[t]' * state_t[t-1];
-              if ((t%9==0)||(t % i1 == 0 && t <= 7) || ((t-7) % i2 == 0 && t > 7 && t <= 20) || ((t-20) % i3 == 0 &&  t > 20 && t <= 27) || ((t-27) % i4 == 0 && t >27)){
+              state_t[t] = t_p[t]' * state_t[t - 1];
+              state_t_NM = t_p[t]' * state_t[t - 1];
+              //if ((t % i1 == 0 && t <= b_era[1]) || ((t-b_era[1]) % i2 == 0 && t > b_era[1] && t <= b_era[2]) || ((t - b_era[2]) % i3 == 0 && t > b_era[2] && t <= b_era[3]) || ((t-b_era[3]) % i4 == 0 && t > b_era[3])){
+              if(1 == 1){
                 state_t[t] = M' * state_t[t];
-                M_cost = M_cost + inspection_cost + pm_cost * sum(state_t[t][pm_init:(cm_init - 1)]) + cm_cost * sum(state_t[t][cm_init:]);
-                NM_cost = NM_cost + inspection_cost + pm_cost * sum(state_t_NM[pm_init:(cm_init - 1)]) + cm_cost * sum(state_t_NM[cm_init:]);
-                cost[i1, i2, i3, i4] = cost[i1, i2, i3, i4] + NM_cost - M_cost; // NM - M vs M - NM?
+                M_cost = pm_cost * sum(state_t[t][pm_init:(cm_init - 1)]) + cm_cost * sum(state_t[t][cm_init:]);
+                NM_cost = pm_cost * sum(state_t_NM[pm_init:(cm_init - 1)]) + cm_cost * sum(state_t_NM[cm_init:]);
+                cost[i1, i2, i3, i4] = cost[i1, i2, i3, i4] + NM_cost - M_cost + inspection_cost; // NM - M vs M - NM?
               }
+            }
+          }
+          if(cost[i1, i2, i3, i4] < best_M_cost){
+            best_M_cost = cost[i1, i2, i3, i4];
+            for(t_ in 1:max(time_obs)){
+              best_state_t[t_] = state_t[t_];
             }
           }
         }
