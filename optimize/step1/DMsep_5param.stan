@@ -19,6 +19,7 @@ transformed data {
 
 parameters {
   real<lower=0> rate[3];
+  real<lower=0, upper=1> p;
 }
 
 transformed parameters {
@@ -28,7 +29,7 @@ transformed parameters {
   matrix[n_state, n_state] DM_pow[max(time_obs)];
   matrix[n_state, n_state] TPM;
   matrix[n_state, n_state] M;
-  real<lower=0, upper=1> p;
+  
   
   for(i in 1:n_state){
     for(j in 1:n_state){
