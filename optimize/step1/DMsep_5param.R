@@ -11,7 +11,7 @@ imputed_data <- complete(mice_imp, 1)
 # original policy (wihtout pm)
 n_state = 3
 initial_state = 1
-repair_state 
+#repair_state 
 generate_state_matrix <- function(data, n){
   state<-cut(data, breaks=c(quantile(data,seq(0,1,length.out = n+1))),labels = 1:n, include.lowest=TRUE)
   state<-as.numeric(as.character(state))
@@ -46,7 +46,7 @@ print(rate_matrix)
 TPM_matrix <- matrix(rep(0.0, n_state ** 2), nrow=n_state)
 for(i in 1:(n_state)){
   for(j in 1:(n_state)){
-  TPM_matrix[i, j] = as.numeric(res[paste0("TPM","[",i,",", j,"]")]);
+  TPM_matrix[i, j] = as.numeric(res[paste0("TPM[1,",i,",", j,"]")]);
   }
 }
 
