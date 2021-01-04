@@ -13,17 +13,19 @@ n_state = 3
 initial_state = 1
 #repair_state 
 generate_state_matrix <- function(data, n){
-  state<-cut(data, breaks=c(quantile(data,seq(0,1,length.out = n+1))),labels = 1:n, include.lowest=TRUE)
-  state<-as.numeric(as.character(state))
+  #state<-cut(data, breaks=c(quantile(data,seq(0,1,length.out = n+1))),labels = 1:n, include.lowest=TRUE)
+  state <- cut(data, breaks=c(0, 80, 160, max(data)), labels=1:n, include.lowest = TRUE)
+  state<-as.numeric(state)
+  
   matrix(state,nrow=31)
 }
 
 state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
-states <- as.vector(t(state_matrix)) #[imputed_data$engine_ind == engine_type]
+states <- as.vector(t(state_matrix)) #[imputed_data$engine_ind == engine_type] shiptype -> year
 onehot <- list()
 # one-hot encode per-data state to vector
 for(i in 1:length(states)){
-  t_tmp <- as.vector(rep(0, len=n_state))
+  t_tmp <- rep(0, len=n_state)
   t_tmp[states[i]] <- 1
   onehot[[i]] <- t_tmp
 }
@@ -49,5 +51,4 @@ for(i in 1:(n_state)){
   TPM_matrix[i, j] = as.numeric(res[paste0("TPM[1,",i,",", j,"]")]);
   }
 }
-
-print(TPM_matrix)
+TPM_matrix
