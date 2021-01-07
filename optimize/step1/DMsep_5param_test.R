@@ -1,3 +1,4 @@
+setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
@@ -5,17 +6,20 @@ library(ggplot2)
 model_DMsep <- stan_model(file.path(getwd(), "optimize/step1/DMsep_5param.stan"), verbose = FALSE) #approx_deterioration_matrix
 
 mice_imp <- generateMice()
-imputed_data <- complete(mice_imp, 1)
+imputed_data<- complete(mice_imp, 1)
+
+imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
+imputed_data$y_data <- unlist(c(imputed_data_gp))
+
 
 #################################### DM_sep
 # original policy (wihtout pm)
 n_state = 3
 initial_state = 1
-#repair_state 
+
 generate_state_matrix <- function(data, n){
-  state <- cut(data, breaks=c(0, 80, 160, max(data)), labels=1:n, include.lowest = TRUE)
+  state <- cut(data, breaks=quantile(data,c(0,1/3,2/3,1)), labels=1:n, include.lowest = TRUE)
   state<-as.numeric(state)
-  
   matrix(state,nrow=31)
 }
 
@@ -30,23 +34,26 @@ for(i in 1:length(states)){
 }
 
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
-
-train_data <- onehot_array[1:(31*80), ]
-test_data <- onehot_array[(31*80+1):dim(onehot_array)[1] , ]
-opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[1:(31*80)], initial_state=initial_state)
+set.seed(210106)
+test_ship_ind=sort(sample(1:99,5))
+test_ind=c(sapply(test_ship_ind,function(i) i*31+(1:31)))
+onehot_array
+train_data <- onehot_array[-test_ind, ]
+test_data <- onehot_array[test_ind, ]
+opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
 print("start sampling")
-res <- optimizing(model_DMsep, opt_data)#, init=list(rate=rep(1.0, n_state-1)))
+res <- optimizing(model_DMsep, opt_data)
 print("end sampling")
 print(paste0("return code:", res$return_code))
-res <- res$par
 print(res["p"])
-rate_matrix <- matrix(rep(0.0, n_state ** 2), nrow=n_state)
-for(i in 1:(n_state-1)){
-  rate_matrix[i, i] = -as.numeric(res[paste0("rate","[",i,"]")]);
-  rate_matrix[i, i+1] = as.numeric(res[paste0("rate","[",i,"]")]);
-}
-rate_matrix[n_state, n_state] = 0
-print(rate_matrix)
+
+
+
+
+###############################
+
+
+
 
 pred_res <- data.frame(matrix(ncol=2, nrow=31*99 - 31*80))
 colnames(pred_res) <- c("pred", "obs")

@@ -1,18 +1,3 @@
-functions {
-  matrix generate_p_t(int n_state, real[] rate, real t){
-    matrix[n_state, n_state] return_matrix = rep_matrix(0, n_state, n_state);
-
-    return_matrix[1, 1] = exp(-(rate[1] + rate[2]) * t);
-    return_matrix[1, 2] = rate[1] * exp(-rate[3] * t) * (1 - exp(-(rate[1] + rate[2] - rate[3]) * t)) / (rate[1] + rate[2] - rate[3]);
-    return_matrix[1, 3] = 1 - return_matrix[1, 1] - return_matrix[1, 2];
-
-    return_matrix[2, 2] = exp(-rate[3] * t);
-    return_matrix[2, 3] = 1 - return_matrix[2, 2];
-
-    return_matrix[3, 3] = 1;
-    return(return_matrix);
-  }
-}
 
 data {
   int<lower=0> N; // numbmer of observations
@@ -34,14 +19,13 @@ transformed data {
 }
 
 parameters {
-  real<lower=0> rate[3];
+  real<lower=0> rate[4,3];
   real<lower=0, upper=1> p;
 }
 
 transformed parameters {
-  matrix[n_state, n_state] D_pow[max(time_obs)];
-  matrix[n_state, n_state] DM_pow[max(time_obs)];
-  matrix[n_state, n_state] TPM[max(time_obs)];
+  matrix[n_state, n_state] DM_pow[31];
+  matrix[n_state, n_state] D[4];
   matrix[n_state, n_state] M;
   
   
@@ -50,35 +34,43 @@ transformed parameters {
       if ((i==j && i< 3)){
         M[i, i] = 1;
       }
-      else if (i==3 && j ==1){
+      else if (i==1 && j ==3){
         M[i, j] = p;
       }
-      else if (i==3 && j ==2){
+      else if (i==2 && j ==3){
         M[i, j] = 1-p;
       }
       else M[i, j] = 0;
     }
   }
   
-  // TPM[1,1] = exp(-(rate[1]+ rate[2]));
-  // TPM[1,2] = rate[1] * exp(-rate[3]) * (1-exp(-(rate[1]+ rate[2] - rate[3]))) / (rate[1]+ rate[2] - rate[3]);
-  // TPM[1,3] = 1 - TPM[1,1] - TPM[1,2];
-  // TPM[2,1] = 0;
-  // TPM[2,2] = exp(-rate[3]);
-  // TPM[2,3] = 1 - TPM[2,2];
-  // TPM[3,1] = 0;
-  // TPM[3,2] = 0;
-  // TPM[3,3] = exp(0);
+  for(i in 1:4){
+    D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
+    D[i][2,1] = rate[i,1] * exp(-rate[i,3]) * (1-exp(-(rate[i,1]+ rate[i,2] - rate[i,3]))) / (rate[i,1]+ rate[i,2] - rate[i,3]);
+    D[i][3,1] = 1 - D[i][1,1] - D[i][1,2];
+    D[i][1,2] = 0;
+    D[i][2,2] = exp(-rate[i,3]);
+    D[i][3,2] = 1 - D[i][2,2];
+    D[i][1,3] = 0;
+    D[i][2,3] = 0;
+    D[i][3,3] = exp(0);
+  }
+  
+  DM_pow[1] = D[1];
 
-
-  D_pow[1] = generate_p_t(n_state, rate, 1);
-  TPM[1] = D_pow[1];
-  DM_pow[1] = M * D_pow[1];//TPM;
-  // M should be multiplied in rate
   for (i in 2:max(time_obs)){
-    TPM[i] = generate_p_t(n_state, rate, i);
-    D_pow[i] = TPM[i] * D_pow[i-1];
-    DM_pow[i] = M * D_pow[i];
+    if (i <= 8){
+      DM_pow[i] = D[1] * M * DM_pow[i-1];
+    }
+    else if (i <=20){
+      DM_pow[i] = D[2] * M * DM_pow[i-1];
+    }
+    else if (i <=26){
+      DM_pow[i] = D[3] * M * DM_pow[i-1];
+    }
+    else{
+      DM_pow[i] = D[4] * M * DM_pow[i-1];
+    }
   }
 }
 
@@ -86,10 +78,10 @@ transformed parameters {
 model {
   for(i in 1:N){
     if (time_obs[i] ==1){
-      target += -(D_pow[time_obs[i]]*initial - state_obs[i])'*(D_pow[time_obs[i]]*initial - state_obs[i]); //how to prevent DM_pow[0]?
+      target += -(D[1]*initial - state_obs[i])'*(D[1]*initial - state_obs[i]); //how to prevent DM_pow[0]?
     }
     else{
-      target += -(DM_pow[time_obs[i]-1]  * initial - state_obs[i])'*(DM_pow[time_obs[i]-1] * initial - state_obs[i]);
+      target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
     }
   }
 }
