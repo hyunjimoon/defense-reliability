@@ -1,16 +1,12 @@
-setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+#setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
 library(ggplot2)
 model_DMsep <- stan_model(file.path(getwd(), "optimize/step1/DMsep_5param.stan"), verbose = FALSE) #approx_deterioration_matrix
-
-mice_imp <- generateMice()
-imputed_data<- complete(mice_imp, 1)
-
 imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
 imputed_data$y_data <- unlist(c(imputed_data_gp))
-
 
 #################################### DM_sep
 # original policy (wihtout pm)
@@ -37,29 +33,40 @@ onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array(
 set.seed(210106)
 test_ship_ind=sort(sample(1:99,5))
 test_ind=c(sapply(test_ship_ind,function(i) i*31+(1:31)))
-onehot_array
 train_data <- onehot_array[-test_ind, ]
 test_data <- onehot_array[test_ind, ]
 opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
-print("start sampling")
-res <- optimizing(model_DMsep, opt_data)
-print("end sampling")
+res <- optimizing(model_DMsep, importance_resampling = TRUE,draws = 5, algorithm = "Newton",  hessian = TRUE, opt_data, verbose = TRUE)
+
+print(res$theta_tilde[13]) # p - unlike $par, $theta_tilde is not `Named num` yet
+res$par["p"]
+res <- optimizing(model_DMsep, opt_data, verbose = TRUE)
+
 print(paste0("return code:", res$return_code))
-print(res["p"])
+############################## 
+##############################
+# Debug code
+for (era in 1:4){
+  D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
+  for(j in 1:3){
+    rate <- res$par[paste0("rate[", era,",", j,"]")]
+    print(rate)
+  }
+  print(D)
+}
 
-
-
-
-###############################
-
-
-
+for (era in 1:4){
+  DM_pow <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("DM_pow[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
+  print(DM_pow)
+}
+############################## 
+##############################
 
 pred_res <- data.frame(matrix(ncol=2, nrow=31*99 - 31*80))
 colnames(pred_res) <- c("pred", "obs")
 for(i in (31*80+1):length(states)){
-  D_pow <- t(matrix(as.vector(unlist(lapply(1:n_state, function(row){ lapply(1:n_state, function(col){res[paste0("D_pow[",imputed_data$age_ind[i],",",row,",",col,"]")]})}))), nrow=3))
-  DM_pow <- t(matrix(as.vector(unlist(lapply(1:n_state, function(row){ lapply(1:n_state, function(col){res[paste0("DM_pow[",imputed_data$age_ind[i],",",row,",",col,"]")]})}))), nrow=3))
+  D_pow <- matrix(as.vector(unlist(lapply(1:n_state, function(row){ lapply(1:n_state, function(col){res[paste0("D_pow[",imputed_data$age_ind[i],",",row,",",col,"]")]})}))), nrow=3,byrow=T)
+  DM_pow <- matrix(as.vector(unlist(lapply(1:n_state, function(row){ lapply(1:n_state, function(col){res[paste0("DM_pow[",imputed_data$age_ind[i],",",row,",",col,"]")]})}))), nrow=3,byrow=T)
   if(imputed_data$age_ind[i] == 1){
     pred_res[i-31*80, "pred"] <- which.max(D_pow %*% as.integer(intToBits(2 ** (initial_state-1)))[1:3])
     #print(D_pow %*% as.integer(intToBits(2 ** (initial_state-1)))[1:3])
