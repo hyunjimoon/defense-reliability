@@ -1,4 +1,3 @@
-
 data {
   int<lower=0> N; // numbmer of observations
   int<lower=1>n_state; // number of states
@@ -9,7 +8,6 @@ data {
 
 transformed data {
   vector[n_state] initial;
-
   for(i in 1:n_state){
     initial[i] = 0;
     if(i == initial_state){
@@ -27,7 +25,6 @@ transformed parameters {
   matrix[n_state, n_state] DM_pow[31];
   matrix[n_state, n_state] D[4];
   matrix[n_state, n_state] M;
-  
   
   for(i in 1:n_state){
     for(j in 1:n_state){
@@ -47,8 +44,8 @@ transformed parameters {
   for(i in 1:4){
     D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
     D[i][2,1] = rate[i,1] * exp(-rate[i,3]) * (1-exp(-(rate[i,1]+ rate[i,2] - rate[i,3]))) / (rate[i,1]+ rate[i,2] - rate[i,3]);
-    D[i][3,1] = 1 - D[i][1,1] - D[i][1,2];
     D[i][1,2] = 0;
+    D[i][3,1] = 1 - D[i][1,1] - D[i][1,2];
     D[i][2,2] = exp(-rate[i,3]);
     D[i][3,2] = 1 - D[i][2,2];
     D[i][1,3] = 0;
@@ -57,7 +54,6 @@ transformed parameters {
   }
   
   DM_pow[1] = D[1];
-
   for (i in 2:max(time_obs)){
     if (i <= 8){
       DM_pow[i] = D[1] * M * DM_pow[i-1];
@@ -74,14 +70,17 @@ transformed parameters {
   }
 }
 
-
 model {
+
   for(i in 1:N){
     if (time_obs[i] ==1){
       target += -(D[1]*initial - state_obs[i])'*(D[1]*initial - state_obs[i]); //how to prevent DM_pow[0]?
     }
     else{
+      print("DMpow", DM_pow[time_obs[i]]);
+      print(-(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]));
       target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
     }
+    print("target", target());
   }
 }
