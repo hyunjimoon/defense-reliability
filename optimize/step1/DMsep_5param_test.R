@@ -1,12 +1,19 @@
-#setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
 
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
 library(rstan)
 library(ggplot2)
+library(scales)
+
 model_DMsep <- stan_model(file.path(getwd(), "optimize/step1/DMsep_5param.stan"), verbose = FALSE) #approx_deterioration_matrix
+
+mice_imp <- generateMice()
+imputed_data<- complete(mice_imp, 1)
+
 imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
 imputed_data$y_data <- unlist(c(imputed_data_gp))
+
 
 #################################### DM_sep
 # original policy (wihtout pm)
@@ -36,52 +43,74 @@ test_ind=c(sapply(test_ship_ind,function(i) i*31+(1:31)))
 train_data <- onehot_array[-test_ind, ]
 test_data <- onehot_array[test_ind, ]
 opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
-res <- optimizing(model_DMsep, importance_resampling = TRUE,draws = 5, algorithm = "Newton",  hessian = TRUE, opt_data, verbose = TRUE)
 
-print(res$theta_tilde[13]) # p - unlike $par, $theta_tilde is not `Named num` yet
-res$par["p"]
 res <- optimizing(model_DMsep, opt_data, verbose = TRUE)
-
-print(paste0("return code:", res$return_code))
 ############################## 
 ##############################
 # Debug code
+
+rate<-matrix(0,nrow=4,ncol=3)
+
 for (era in 1:4){
   D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
   for(j in 1:3){
-    rate <- res$par[paste0("rate[", era,",", j,"]")]
-    print(rate)
+    rate[era,j] <- res$par[paste0("rate[", era,",", j,"]")]
   }
+  print(paste0("Era:",era))
   print(D)
 }
+print(rate)
 
-for (era in 1:4){
-  DM_pow <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("DM_pow[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
-  print(DM_pow)
-}
-############################## 
-##############################
+predicted_state<-matrix(0,nrow=31,ncol=3)
+DM_pow<-array(0,dim=c(31,3,3))
 
-pred_res <- data.frame(matrix(ncol=2, nrow=31*99 - 31*80))
-colnames(pred_res) <- c("pred", "obs")
-for(i in (31*80+1):length(states)){
-  D_pow <- matrix(as.vector(unlist(lapply(1:n_state, function(row){ lapply(1:n_state, function(col){res[paste0("D_pow[",imputed_data$age_ind[i],",",row,",",col,"]")]})}))), nrow=3,byrow=T)
-  DM_pow <- matrix(as.vector(unlist(lapply(1:n_state, function(row){ lapply(1:n_state, function(col){res[paste0("DM_pow[",imputed_data$age_ind[i],",",row,",",col,"]")]})}))), nrow=3,byrow=T)
-  if(imputed_data$age_ind[i] == 1){
-    pred_res[i-31*80, "pred"] <- which.max(D_pow %*% as.integer(intToBits(2 ** (initial_state-1)))[1:3])
-    #print(D_pow %*% as.integer(intToBits(2 ** (initial_state-1)))[1:3])
+for (t in 1:31){
+  for (i in 1:3){
+    for (j in 1:3){
+      DM_pow[t,i,j]=res$par[paste0("DM_pow[",t,",",i,",", j,"]")]
+    }
   }
-  else{
-    pred_res[i-31*80, "pred"] <- which.max(DM_pow %*% as.integer(intToBits(2 ** (initial_state-1)))[1:3])
-    #print(DM_pow %*% as.integer(intToBits(2 ** (initial_state-1)))[1:3])
-  }
-  pred_res[i-31*80, "obs"] <- which.max(test_data[i-31*80, ])#apply(test_data[i-31*80], 1, which.max)
+  predicted_state[t,]=DM_pow[t,,]%*%c(1,0,0)
 }
 
-library(ggplot2)
-library(reshape2)
+observed_count = sapply(1:3,function(i) apply(state_matrix,1,function(x) sum(x==i)))
+observed_prop=t(apply(observed_count,1,function(x) x/sum(x)))
+observed_scaled_state = exp(exp(exp(observed_prop)))/10
+observed_scaled_state = t(apply(observed_scaled_state,1,function(x) x/sum(x)))
+scaled_state=exp(exp(exp(predicted_state)))/10
+scaled_state =  t(apply(scaled_state,1,function(x) x/sum(x)))
 
-ggplot(pred_res, aes(x=as.numeric(row.names(pred_res)))) + geom_point(aes(y=pred, colour="red")) +
-  geom_point(aes(y=obs, colour="green")) + ylim(1, 3)
+#plot(1,type="n",xlab="year",ylab="state",pch=19,cex=1,xlim=c(0,32),ylim=c(.5,3.5))
 
-sum(pred_res[, "pred"] == pred_res[, "obs"]) / dim(test_data)[1]
+
+#for(i in rep(1:31,each=3)){
+#  for (j in rep(1:3,31)){
+#    points(i,j,pch=16,cex=4,col = rgb(red = 0, green = 0, blue = 1, alpha = 0.5))
+#  }
+#}
+
+ship_observed_state = data.frame(ship_id=rep(1:99,31),time=factor(rep(1:31,each=99)),state=states)
+total_count_df=data.frame(time=factor(rep(1:31,3)),states=factor(rep(1:3,each=31)),observed=c(observed_count),predicted=c(predicted_state)*99)
+
+legend_size <- c(10,8,5,1,5,8,10)
+
+
+ggplot(total_count_df, aes(x = time, y = states)) +
+  geom_point(aes(colour="observed", size = observed),alpha=1) +
+  geom_point(aes(colour="predicted", size = predicted),alpha=0.4) +
+  scale_size(breaks = c(-3:3), range = c(1,30)) +
+  guides(
+    size=guide_legend(override.aes = list(size = legend_size))
+  ) 
+
+ggplot(total_count_df, aes(x = time, y = states)) +
+  geom_point(aes(colour="1", size = observed)) +
+  scale_colour_continuous(low = "blue", high = "red", breaks = c(-3:3) ) +
+  scale_size(breaks = c(-3:3), range = c(1,15)) +
+  guides(
+    color= guide_legend(), 
+    size=guide_legend(override.aes = list(size = legend_size))
+  ) 
+
+
+
