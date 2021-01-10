@@ -45,7 +45,7 @@ transformed parameters {
     D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
     D[i][2,1] = rate[i,1] * exp(-rate[i,3]) * (1-exp(-(rate[i,1]+ rate[i,2] - rate[i,3]))) / (rate[i,1]+ rate[i,2] - rate[i,3]);
     D[i][1,2] = 0;
-    D[i][3,1] = 1 - D[i][1,1] - D[i][1,2];
+    D[i][3,1] = 1 - D[i][1,1] - D[i][2,1];
     D[i][2,2] = exp(-rate[i,3]);
     D[i][3,2] = 1 - D[i][2,2];
     D[i][1,3] = 0;
@@ -73,14 +73,11 @@ transformed parameters {
 model {
 
   for(i in 1:N){
-    if (time_obs[i] ==1){
-      target += -(D[1]*initial - state_obs[i])'*(D[1]*initial - state_obs[i]); //how to prevent DM_pow[0]?
-    }
-    else{
-      print("DMpow", DM_pow[time_obs[i]]);
-      print(-(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]));
-      target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
-    }
+
+    print("DMpow", DM_pow[time_obs[i]]);
+    print(-(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]));
+    target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
+
     print("target", target());
   }
 }
