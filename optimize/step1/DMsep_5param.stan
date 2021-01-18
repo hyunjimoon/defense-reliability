@@ -19,6 +19,8 @@ transformed data {
 parameters {
   real<lower=0> rate[4,3];
   real<lower=0, upper=1> p;
+  real<lower=0, upper=1> q;
+  real<lower=0, upper=1> r;
 }
 
 transformed parameters {
@@ -26,20 +28,15 @@ transformed parameters {
   matrix[n_state, n_state] D[4];
   matrix[n_state, n_state] M;
   
-  for(i in 1:n_state){
-    for(j in 1:n_state){
-      if ((i==j && i< 3)){
-        M[i, i] = 1;
-      }
-      else if (i==1 && j ==3){
-        M[i, j] = p;
-      }
-      else if (i==2 && j ==3){
-        M[i, j] = 1-p;
-      }
-      else M[i, j] = 0;
-    }
-  }
+  M[1,1]=1;
+  M[1,2]=p;
+  M[1,3]=q;
+  M[2,1]=0;
+  M[2,2]=(1-p);
+  M[2,3]=r;
+  M[3,1]=0;
+  M[3,2]=0;
+  M[3,3]=(1-q-r);
   
   for(i in 1:4){
     D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
@@ -50,7 +47,7 @@ transformed parameters {
     D[i][3,2] = 1 - D[i][2,2];
     D[i][1,3] = 0;
     D[i][2,3] = 0;
-    D[i][3,3] = exp(0);
+    D[i][3,3] = 1;
   }
   
   DM_pow[1] = D[1];
@@ -74,10 +71,7 @@ model {
 
   for(i in 1:N){
 
-    print("DMpow", DM_pow[time_obs[i]]);
-    print(-(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]));
     target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
 
-    print("target", target());
   }
 }
