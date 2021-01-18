@@ -38,13 +38,71 @@ for(i in 1:length(states)){
 
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
 set.seed(210106)
-test_ship_ind=sort(sample(1:99,5))
-test_ind=c(sapply(test_ship_ind,function(i) i*31+(1:31)))
-train_data <- onehot_array[-test_ind, ]
-test_data <- onehot_array[test_ind, ]
-opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
 
-res <- optimizing(model_DMsep, opt_data, verbose = TRUE)
+iter=100
+
+MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),r=rep(0,iter))
+D_array <- array(0, dim=c(iter,4,3,3))
+ship_ind_df<-matrix(0,nrow=iter,ncol=5)
+
+for (i in 1:iter){
+  test_ship_ind=sort(sample(1:99,5))
+  ship_ind_df[i,]=test_ship_ind
+  test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
+  train_data <- onehot_array[-test_ind, ]
+  test_data <- onehot_array[test_ind, ]
+  opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
+  
+  res <- optimizing(model_DMsep, opt_data, verbose = TRUE,hessian = TRUE)
+  
+  predicted_state<-matrix(0,nrow=31,ncol=3)
+  DM_pow<-array(0,dim=c(31,3,3))
+  
+  for (t in 1:31){
+    for (k in 1:3){
+      for (j in 1:3){
+        DM_pow[t,k,j]=res$par[paste0("DM_pow[",t,",",k,",", j,"]")]
+      }
+    }
+    predicted_state[t,]=DM_pow[t,,]%*%c(1,0,0)
+  }
+  MSE_df[i,3]=res$par["p"]
+  MSE_df[i,4]=res$par["q"]
+  MSE_df[i,5]=res$par["r"]
+  
+  for (era in 1:4){
+    D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
+    D_array[i,era,,]=D
+  }
+  
+  SSE_total = rep(0,nrow=99*31)
+  for (ind in 1:(99*31)){
+    SSE_total[ind]=sum((onehot_array[ind,]-predicted_state[(ind-1)%%31+1,])^2)
+  }
+  MSE_df[i,1]=i
+  MSE_df[i,2]=sum(SSE_total[test_ind])^0.5
+  print(paste0(i,"th iteration finished"))
+}
+
+MSE_df
+ship_ind_df
+
+
+hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
+hist(MSE_df$p,breaks=100,main="p",xlab="p")
+hist(MSE_df$q,breaks=100,main="q",xlab="q")
+hist(MSE_df$r,breaks=100,main="r",xlab="r")
+
+par(mfrow=c(3,3))
+
+for(i in 1:3){
+  for(j in 1:3){
+    hist(D_array[,3,i,j],breaks=100,main=paste0("Histogram of D[",i,",",j,"] of Era ",3),xlab=paste0("D[",i,",",j,"]"))
+  }
+}
+
+
+
 ############################## 
 ##############################
 # Debug code
@@ -91,8 +149,7 @@ scaled_state =  t(apply(scaled_state,1,function(x) x/sum(x)))
 
 ship_observed_state = data.frame(ship_id=rep(1:99,31),time=factor(rep(1:31,each=99)),state=states)
 total_count_df=data.frame(time=factor(rep(1:31,3)),states=factor(rep(1:3,each=31)),observed=c(observed_count),predicted=c(predicted_state)*99)
-
-legend_size <- c(10,8,5,1,5,8,10)
+test_count_df = data.frame(time=rep(1:31,5),observed=c(state_matrix[,test_ship_ind]),ship_ind=factor(rep(test_ship_ind,each=31)),predicted_max=rep(apply(predicted_state,1,which.max),5))
 
 
 ggplot(total_count_df, aes(x = time, y = states)) +
@@ -103,14 +160,27 @@ ggplot(total_count_df, aes(x = time, y = states)) +
     size=guide_legend(override.aes = list(size = legend_size))
   ) 
 
-ggplot(total_count_df, aes(x = time, y = states)) +
-  geom_point(aes(colour="1", size = observed)) +
-  scale_colour_continuous(low = "blue", high = "red", breaks = c(-3:3) ) +
-  scale_size(breaks = c(-3:3), range = c(1,15)) +
+total_df=data.frame(time=rep(1:31,3),states=rep(1:3,each=31),observed=c(observed_count),predicted=c(predicted_state)*99)
+
+ggplot(test_count_df, aes(x = time, y = observed)) +
+  geom_line(aes(colour=ship_ind),size=1.2) +
+  coord_cartesian(ylim = c(0.5, 3.5)) +
+  geom_point(aes(colour=ship_ind),size=3) +
+  geom_point(data=total_df, aes(x=time,y=states, size = predicted),color="red",alpha=0.1) +
+  scale_size(breaks = c(-3:3), range = c(1,30)) +
   guides(
-    color= guide_legend(), 
     size=guide_legend(override.aes = list(size = legend_size))
   ) 
+
+ggplot(test_count_df, aes(x = time, y = observed)) +
+  geom_line(aes(colour=ship_ind),size=1.2) +
+  coord_cartesian(ylim = c(0.5, 3.5)) +
+  geom_point(aes(colour=ship_ind),size=3) +
+  geom_point(aes(x=time,y=predicted_max),size=10,color="red",alpha=0.2)
+  
+
+
+
 
 
 
