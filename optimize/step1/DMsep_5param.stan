@@ -65,6 +65,7 @@ transformed parameters {
       DM_pow[i] = D[4] * M * DM_pow[i-1];
     }
   }
+
 }
 
 model {
@@ -72,6 +73,7 @@ model {
   for(i in 1:N){
 
     target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
+    //target += dot_product(log(DM_pow[time_obs[i]]  * initial), state_obs[i]); // cross entropy
 
   }
 }

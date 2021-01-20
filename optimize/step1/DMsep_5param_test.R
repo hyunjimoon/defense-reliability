@@ -1,4 +1,4 @@
-setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+#setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
 
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
@@ -43,7 +43,10 @@ iter=100
 
 MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),r=rep(0,iter))
 D_array <- array(0, dim=c(iter,4,3,3))
+rate_array <- array(0, dim=c(iter, 4, 3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
+
+val_vec <- array(0, dim=c(4, iter))
 
 for (i in 1:iter){
   test_ship_ind=sort(sample(1:99,5))
@@ -73,6 +76,8 @@ for (i in 1:iter){
   for (era in 1:4){
     D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
     D_array[i,era,,]=D
+    rate_array[i, era, ] <- as.vector(unlist(lapply(1:n_state, function(row){res$par[paste0("rate[",era,",",row,"]")]})))
+    val_vec[era, i] <- res$value
   }
   
   SSE_total = rep(0,nrow=99*31)
@@ -101,7 +106,7 @@ for(i in 1:3){
   }
 }
 
-
+##ggplot(data.frame(p=rate_array[, 3, 3], two=D_array[,3,2,2]), aes(x=p, y=two)) + geom_point()
 
 ############################## 
 ##############################
@@ -151,6 +156,7 @@ ship_observed_state = data.frame(ship_id=rep(1:99,31),time=factor(rep(1:31,each=
 total_count_df=data.frame(time=factor(rep(1:31,3)),states=factor(rep(1:3,each=31)),observed=c(observed_count),predicted=c(predicted_state)*99)
 test_count_df = data.frame(time=rep(1:31,5),observed=c(state_matrix[,test_ship_ind]),ship_ind=factor(rep(test_ship_ind,each=31)),predicted_max=rep(apply(predicted_state,1,which.max),5))
 
+legend_size = 5
 
 ggplot(total_count_df, aes(x = time, y = states)) +
   geom_point(aes(colour="observed", size = observed),alpha=1) +
