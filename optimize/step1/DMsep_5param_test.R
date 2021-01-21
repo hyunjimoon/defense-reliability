@@ -21,6 +21,7 @@ n_state = 3
 initial_state = 1
 
 generate_state_matrix <- function(data, n){
+  #state <- cut(data, breaks=c(0, 80, 160, max(data)), labels=1:n, include.lowest = TRUE)
   state <- cut(data, breaks=quantile(data,c(0,1/3,2/3,1)), labels=1:n, include.lowest = TRUE)
   state<-as.numeric(state)
   matrix(state,nrow=31)
@@ -41,15 +42,12 @@ set.seed(210106)
 
 iter=100
 
-MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),r=rep(0,iter))
+MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),rate1=rep(0,iter),rate2=rep(0,iter),rate3=rep(0,iter))
 D_array <- array(0, dim=c(iter,4,3,3))
-rate_array <- array(0, dim=c(iter, 4, 3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
 
-val_vec <- array(0, dim=c(4, iter))
-
 for (i in 1:iter){
-  test_ship_ind=sort(sample(1:99,5))
+  test_ship_ind= sort(sample(1:99,5)) #c(17,20,24,77,82)
   ship_ind_df[i,]=test_ship_ind
   test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
   train_data <- onehot_array[-test_ind, ]
@@ -71,38 +69,37 @@ for (i in 1:iter){
   }
   MSE_df[i,3]=res$par["p"]
   MSE_df[i,4]=res$par["q"]
-  MSE_df[i,5]=res$par["r"]
   
   for (era in 1:4){
     D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
     D_array[i,era,,]=D
-    rate_array[i, era, ] <- as.vector(unlist(lapply(1:n_state, function(row){res$par[paste0("rate[",era,",",row,"]")]})))
-    val_vec[era, i] <- res$value
   }
+  MSE_df[i,6]=res$par["rate[3,1]"]
+  MSE_df[i,7]=res$par["rate[3,2]"]
+  MSE_df[i,8]=res$par["rate[3,3]"]
   
   SSE_total = rep(0,nrow=99*31)
   for (ind in 1:(99*31)){
     SSE_total[ind]=sum((onehot_array[ind,]-predicted_state[(ind-1)%%31+1,])^2)
   }
   MSE_df[i,1]=i
-  MSE_df[i,2]=sum(SSE_total[test_ind])^0.5
+  MSE_df[i,2]=sum(SSE_total[test_ind])/5
+  MSE_df[i,5]=sum(SSE_total[-test_ind])/94
+  
   print(paste0(i,"th iteration finished"))
 }
 
-MSE_df
-ship_ind_df
-
-
+par(mfrow=c(1,1))
 hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
-hist(MSE_df$p,breaks=100,main="p",xlab="p")
-hist(MSE_df$q,breaks=100,main="q",xlab="q")
-hist(MSE_df$r,breaks=100,main="r",xlab="r")
+hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
+#hist(MSE_df$r,breaks=100,main="r",xlab="r")
 
 par(mfrow=c(3,3))
-
-for(i in 1:3){
-  for(j in 1:3){
-    hist(D_array[,3,i,j],breaks=100,main=paste0("Histogram of D[",i,",",j,"] of Era ",3),xlab=paste0("D[",i,",",j,"]"))
+for(era in 1:4){
+  for(i in 1:3){
+    for(j in 1:3){
+    hist(D_array[,era,i,j],breaks=100,main=paste0("Histogram of D[",i,",",j,"] of Era ", era),xlab=paste0("D[",i,",",j,"]"))
+   }
   }
 }
 
@@ -119,10 +116,10 @@ for (era in 1:4){
   for(j in 1:3){
     rate[era,j] <- res$par[paste0("rate[", era,",", j,"]")]
   }
+  hist(rate[era,], breaks=100,)
   print(paste0("Era:",era))
   print(D)
 }
-print(rate)
 
 predicted_state<-matrix(0,nrow=31,ncol=3)
 DM_pow<-array(0,dim=c(31,3,3))
@@ -184,9 +181,3 @@ ggplot(test_count_df, aes(x = time, y = observed)) +
   geom_point(aes(colour=ship_ind),size=3) +
   geom_point(aes(x=time,y=predicted_max),size=10,color="red",alpha=0.2)
   
-
-
-
-
-
-

@@ -20,23 +20,23 @@ parameters {
   real<lower=0> rate[4,3];
   real<lower=0, upper=1> p;
   real<lower=0, upper=1> q;
-  real<lower=0, upper=1> r;
+  //real<lower=0, upper=1> r;
 }
 
 transformed parameters {
   matrix[n_state, n_state] DM_pow[31];
   matrix[n_state, n_state] D[4];
-  matrix[n_state, n_state] M;
+  matrix <lower =0>[n_state, n_state] M;
   
   M[1,1]=1;
   M[1,2]=p;
   M[1,3]=q;
   M[2,1]=0;
   M[2,2]=(1-p);
-  M[2,3]=r;
+  M[2,3]= (1-q);
   M[3,1]=0;
   M[3,2]=0;
-  M[3,3]=(1-q-r);
+  M[3,3]= 0; //(1-q-r);
   
   for(i in 1:4){
     D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
@@ -71,9 +71,8 @@ transformed parameters {
 model {
 
   for(i in 1:N){
-
     target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
     //target += dot_product(log(DM_pow[time_obs[i]]  * initial), state_obs[i]); // cross entropy
-
   }
+  print("target:", target());
 }
