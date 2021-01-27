@@ -15,7 +15,7 @@ imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
 imputed_data$y_data <- unlist(c(imputed_data_gp))
 
 
-#################################### DM_sep
+  #################################### DM_sep
 # original policy (wihtout pm)
 n_state = 3
 initial_state = 1
@@ -40,7 +40,7 @@ for(i in 1:length(states)){
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
 set.seed(210106)
 
-iter=100
+iter=1000
 
 MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),rate1=rep(0,iter),rate2=rep(0,iter),rate3=rep(0,iter))
 D_array <- array(0, dim=c(iter,4,3,3))
@@ -54,7 +54,7 @@ for (i in 1:iter){
   test_data <- onehot_array[test_ind, ]
   opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
   
-  res <- optimizing(model_DMsep, opt_data, verbose = TRUE,hessian = TRUE)
+  res <- optimizing(model_DMsep, opt_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
   
   predicted_state<-matrix(0,nrow=31,ncol=3)
   DM_pow<-array(0,dim=c(31,3,3))
@@ -116,7 +116,8 @@ for (era in 1:4){
   for(j in 1:3){
     rate[era,j] <- res$par[paste0("rate[", era,",", j,"]")]
   }
-  hist(rate[era,], breaks=100,)
+  h_ <- hist(rate[era,], breaks=50)
+  print(h_$counts * h_$breaks)
   print(paste0("Era:",era))
   print(D)
 }
