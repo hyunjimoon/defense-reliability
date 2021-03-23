@@ -1,0 +1,465 @@
+---
+title: "An optimization approach to separate the latent deterioration process from maintenance intervention on navyship failure engineering"
+output: pdf_document
+---
+
+This is a supplementary notebook to the original paper.
+
+```{r, results='hide'}
+library(ggplot2)
+library(tidyverse)
+library(rstan)
+library(scales)
+library(knitr)
+```
+
+## Exploratory Data Analysis
+
+Our target data consist of annual failure counts per vessel. Each data point consists of a set of the following:
+
+* Annual Failure Count
+* Age
+* Ship Type indentifier
+* Engine Type indentifier
+
+Data accumulation started from the initial recording year for 31 years, with a total of 99 individual ships; each containing an engine from 4 different types.
+
+
+```{r}
+data <- read.csv("failure_count.csv")[, 2:100]
+data2 <- data %>% 
+  rownames_to_column(var = "age") %>% 
+  gather(key="ship", value="value", -age) %>%
+  mutate(ship=as.integer(substring(ship, 2)), age=as.integer(age), value=as.integer(value))
+
+head(data2)
+```
+```{r}
+ggplot(data2, aes(x = ship, y = age, fill=value)) + 
+  scale_fill_gradientn(colours = rev(rainbow(3)), na.value = "white") + geom_tile() + 
+  scale_y_reverse() + 
+  coord_equal()
+```
+
+## Data Imputation
+
+As you can see from the above heatmap, portions of the data are missing. Since individual ships shared common traits if they are of the same ship/engine type,
+we deduced that such information may be approximated by combining per ship and per engine data.
+
+The failure count process was modeled as a Gaussian process, with per ship and engine parameters for mean and variance.
+This was implemented in stan with a exponentiated quadratic kernel for covariance parameters in each Gaussian process:
+```{stan output.var="impute_gp_model", eval = FALSE}
+data {
+  int<lower=1> N; 
+  int<lower=1> N_engines; 
+  int<lower=1> N_ships;
+  int<lower=1> N_ages_obs;
+  int<lower=1> N_ages;
+  int<lower=1> ship_engine_ind[N_ships];
+  int<lower=1,upper=99> ship_ind[N];
+  int<lower=1> age_ind[N]; 
+  vector[N] y; 
+  real<lower=0> hp_scale;
+  real<lower=0> emp_le_shape;
+  real<lower=0> emp_le_scale;
+  real<lower=0> emp_ls_shape;
+  real<lower=0> emp_ls_scale;
+}
+
+transformed data {
+  real ages[N_ages];
+  int N_comp = 10;
+  for (t in 1:N_ages)
+    ages[t] = t;
+}
+
+parameters {
+  matrix[N_ages,N_engines] GP_engine_std;
+  matrix[N_ages,N_ships] GP_ship_std;
+  vector[N_ages_obs] age_std;
+  vector[N_ships] ship_std;
+  vector[N_engines] engine_std;
+  real<lower=0> tot_var;
+  simplex[N_comp] prop_var;
+  real mu;
+  real<lower=0> length_GP_engine_s;
+  real<lower=0> length_GP_ship_s;
+  real <lower = 0> length_engine_scale;
+  real <lower = 0> length_ship_scale; 
+  real <lower = 0> length_engine_shape;
+  real <lower = 0> length_ship_shape;
+}
+
+transformed parameters {
+  matrix[N_ages,N_engines] GP_engine;
+  matrix[N_ages,N_ships] GP_ship;
+
+  vector[N_ages_obs] age_re;
+  vector[N_ships] ship_re;
+  vector[N_engines] engine_re;
+  vector[N_comp] vars;
+  
+  real sigma_age;
+  real sigma_engine;
+  real sigma_ship; 
+
+  real sigma_error_ship[5];
+
+  real sigma_GP_engine;
+  real sigma_GP_ship;
+  
+  real length_GP_engine = length_engine_scale * length_GP_engine_s;
+  real length_GP_ship = length_ship_scale * length_GP_ship_s;
+  
+  vars = N_comp * prop_var * tot_var;
+  sigma_age = sqrt(vars[1]);
+  sigma_engine = sqrt(vars[2]);
+  sigma_ship = sqrt(vars[3]); 
+  sigma_GP_engine = sqrt(vars[4]);
+  sigma_GP_ship = sqrt(vars[5]);
+  for (i in 6:N_comp){
+      sigma_error_ship[i-5] = sqrt(vars[i]);
+  }
+
+  engine_re = sigma_engine * engine_std;
+  age_re = sigma_age * age_std;
+  ship_re = sigma_ship * ship_std; 
+  
+  {
+    matrix[N_ages, N_ages] cov_engine; 
+    matrix[N_ages, N_ages] cov_ship; 
+    matrix[N_ages, N_ages] L_cov_engine; 
+    matrix[N_ages, N_ages] L_cov_ship; 
+
+    cov_engine = cov_exp_quad(ages, sigma_GP_engine, 
+                                  length_GP_engine);
+    cov_ship = cov_exp_quad(ages, sigma_GP_ship, 
+                                  length_GP_ship);
+    for (age in 1:N_ages) {
+      cov_engine[age, age] = cov_engine[age, age] + 1e-6;
+      cov_ship[age, age] = cov_ship[age, age] + 1e-6;
+    }
+
+    L_cov_engine = cholesky_decompose(cov_engine);
+    L_cov_ship = cholesky_decompose(cov_ship);
+    GP_engine = L_cov_engine * GP_engine_std; //f_engine
+    GP_ship = L_cov_ship * GP_ship_std;       //f_ship
+  }
+}
+
+model {
+  vector[N] obs_mu;
+  for (n in 1:N) {
+    obs_mu[n] = mu 
+              + age_re[age_ind[n]]                                 //fixed effects
+              + engine_re[ship_engine_ind[ship_ind[n]]] 
+              + ship_re[ship_ind[n]]   
+              + GP_engine[age_ind[n],ship_engine_ind[ship_ind[n]]] //f_engine 
+              + GP_ship[age_ind[n],ship_ind[n]];                   //f_ship
+    y[n] ~ normal(obs_mu[n], sigma_error_ship[ship_engine_ind[ship_ind[n]]]);
+  }
+
+  to_vector(GP_engine_std) ~ normal(0, 1);
+  to_vector(GP_ship_std) ~ normal(0, 1);
+  age_std ~ normal(0, 1);
+  ship_std ~ normal(0, 1);
+  engine_std ~ normal(0, 1);
+  mu ~ normal(.5, .5);
+  tot_var ~ normal(0,1);
+  length_engine_shape ~  normal(emp_le_shape, hp_scale);
+  length_engine_scale ~ normal(emp_le_scale, hp_scale);
+  length_ship_shape ~  normal(emp_ls_shape, hp_scale);
+  length_ship_scale ~ normal(emp_ls_scale, hp_scale);
+  length_GP_engine_s ~ weibull(length_engine_shape,1);
+  length_GP_ship_s ~ weibull(length_ship_shape,1);
+}
+```
+
+Note that the imputed data was passed through a Yeo-Johnson transform.
+
+```{r}
+
+imputed_data_gp <- read.csv("y_pred_5var.csv")[,-1]
+imputed_data <- imputed_data_gp %>% 
+  rownames_to_column(var = "age") %>% 
+  gather(key="ship", value="y_data", -age) %>%
+  mutate(ship=as.integer(substring(ship, 2)), age=as.integer(age), y_data=as.numeric(y_data))
+ggplot(imputed_data, aes(x = ship, y = age, fill=y_data)) + 
+  scale_fill_gradientn(colours = rev(rainbow(3))) + geom_tile() + 
+  scale_y_reverse() + 
+  coord_equal()
+```
+
+## Deterioration and Maintenance Model
+
+We took an approach to model the entire degradation process as a Markov Chain for ease of interpretability.
+
+Annual failure counts were subdivided into 3 quantiles, each given a singer state within the Markov chain.
+
+We had to infer both the positive effects of maintenance and the speed of deterioration, which are both present within the data.
+Maintenance is also done every year, with varying effects.
+
+The overall transition rate matrix was split into 2 matrices, D and M, which modeled respectively the effects of deterioration and maintenance.
+Both were estimated from the data by applying both matrices to each Markov transition, selecting the matrices which yielded the lowest error.
+## Age changepoints
+
+In order to take into account the potential factor of age into the rate of deterioration, we decided to estimate a deterioration matrix per for each of 3 age subgroups.
+
+Our initial attempt was to use Stan's pointwise optimizer and find the time changepoints by minimizing the squared error.
+
+Unfortunately, working with integer parameters, even the marginalization trick was insufficient in generating a stable solution.
+
+We decided to resort to `envcpt` which includes a time series changepoint detection model. 
+The resulting changepoint ages were 8, 20, and 26.
+
+```{r}
+# insert changepoint code here
+```
+
+## Modeling the transition rate matrices
+### Deterioration rate matrix
+Once the quantiles and age changepoints were decided, a parameterization for the transition rate matrix is required.
+
+Since deterioration can only occur on a forward manner, for a system with 3 states, 3 parameters, each representing the transition rates to subsequent states are required.
+
+Since transition rates are dependent on time, we need to calculate the deterioration matrix for each time t. Fortunately a closed form solution exists given all parameters are known:
+
+(insert matrix equation here)
+
+￩
+### Maintenance rate matrix
+
+The maintenance model for repair ship engines are defined as follows: for states 2, 3 maintenance may transition from the current state to any of the forward states based on a repair effectiveness probability, or even have not effect and stay at the current state. Given repair probability p and q, the maintenance rate matrix can be parameterized as follows:
+
+(insert p repair probability matrix equation here)
+
+## Combining rate matrices and estimating the matrix parameters
+
+The deterioration and maintenance matrix combined make up the joint transition rate matrix, which was estimated with failure data through stan's pointwise optimizer:
+
+```{r}
+stanmodel_code <- "
+data {
+  int<lower=0> N; // number of observations
+  int<lower=1>n_state; // number of states
+  vector[n_state] state_obs[N];
+  int time_obs[N];
+  int<lower=0, upper=n_state> initial_state;
+}
+
+transformed data {
+  vector[n_state] initial;
+  for(i in 1:n_state){
+    initial[i] = 0;
+    if(i == initial_state){
+      initial[i] = 1;
+    }
+  }
+}
+
+parameters {
+  real<lower=0> rate[4,3];
+  real<lower=0, upper=1> p;
+  real<lower=0, upper=1> q;
+}
+
+transformed parameters {
+  matrix[n_state, n_state] DM_pow[31];
+  matrix[n_state, n_state] D[4];
+  matrix <lower =0>[n_state, n_state] M;
+  
+  M[1,1]=1;
+  M[1,2]=p;
+  M[1,3]=q;
+  M[2,1]=0;
+  M[2,2]=(1-p);
+  M[2,3]= (1-q);
+  M[3,1]=0;
+  M[3,2]=0;
+  M[3,3]= 0; //(1-q-r);
+  
+  for(i in 1:4){
+    D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
+    D[i][2,1] = rate[i,1] * exp(-rate[i,3]) * (1-exp(-(rate[i,1]+ rate[i,2] - rate[i,3]))) / (rate[i,1]+ rate[i,2] - rate[i,3]);
+    D[i][1,2] = 0;
+    D[i][3,1] = 1 - D[i][1,1] - D[i][2,1];
+    D[i][2,2] = exp(-rate[i,3]);
+    D[i][3,2] = 1 - D[i][2,2];
+    D[i][1,3] = 0;
+    D[i][2,3] = 0;
+    D[i][3,3] = 1;
+  }
+  
+  DM_pow[1] = D[1];
+  for (i in 2:max(time_obs)){
+    if (i <= 8){
+      DM_pow[i] = D[1] * M * DM_pow[i-1];
+    }
+    else if (i <=20){
+      DM_pow[i] = D[2] * M * DM_pow[i-1];
+    }
+    else if (i <=26){
+      DM_pow[i] = D[3] * M * DM_pow[i-1];
+    }
+    else{
+      DM_pow[i] = D[4] * M * DM_pow[i-1];
+    }
+  }
+
+}
+
+model {
+
+  for(i in 1:N){
+    target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
+  }
+}
+
+"
+```
+
+The data is divided into 3 subgroups depending on quantiles and one-hot encoded:
+
+```{r}
+model_DMsep = stan_model(model_code = stanmodel_code, verbose = FALSE)
+
+n_state = 3
+initial_state = 1
+
+generate_state_matrix <- function(data, n){
+  #state <- cut(data, breaks=c(0, 80, 160, max(data)), labels=1:n, include.lowest = TRUE)
+  state <- cut(data, breaks=quantile(data,c(0,1/3,2/3,1)), labels=1:n, include.lowest = TRUE)
+  state<-as.numeric(state)
+  matrix(state,nrow=31)
+}
+
+state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
+states <- as.vector(t(state_matrix)) #[imputed_data$engine_ind == engine_type] shiptype -> year
+onehot <- list()
+# one-hot encode per-data state to vector
+for(i in 1:length(states)){
+  t_tmp <- rep(0, len=n_state)
+  t_tmp[states[i]] <- 1
+  onehot[[i]] <- t_tmp
+}
+onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
+head(onehot_array)
+```
+
+Once the data and model are ready, we run optimization 1000 individual times:
+
+```{r R.options=list(max.print=20)}
+iter=100
+
+MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),rate1=rep(0,iter),rate2=rep(0,iter),rate3=rep(0,iter))
+D_array <- array(0, dim=c(iter,4,3,3))
+ship_ind_df<-matrix(0,nrow=iter,ncol=5)
+
+for (i in 1:iter){
+  test_ship_ind= sort(sample(1:99,5)) #c(17,20,24,77,82)
+  ship_ind_df[i,]=test_ship_ind
+  test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
+  train_data <- onehot_array[-test_ind, ]
+  test_data <- onehot_array[test_ind, ]
+  opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age[-test_ind], initial_state=initial_state)
+  
+  res <- optimizing(model_DMsep, opt_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
+  
+  predicted_state<-matrix(0,nrow=31,ncol=3)
+  DM_pow<-array(0,dim=c(31,3,3))
+  
+  for (t in 1:31){
+    for (k in 1:3){
+      for (j in 1:3){
+        DM_pow[t,k,j]=res$par[paste0("DM_pow[",t,",",k,",", j,"]")]
+      }
+    }
+    predicted_state[t,]=DM_pow[t,,]%*%c(1,0,0)
+  }
+  MSE_df[i,3]=res$par["p"]
+  MSE_df[i,4]=res$par["q"]
+  
+  for (era in 1:4){
+    D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
+    D_array[i,era,,]=D
+  }
+  MSE_df[i,6]=res$par["rate[3,1]"]
+  MSE_df[i,7]=res$par["rate[3,2]"]
+  MSE_df[i,8]=res$par["rate[3,3]"]
+  
+  SSE_total = rep(0,nrow=99*31)
+  for (ind in 1:(99*31)){
+    SSE_total[ind]=sum((onehot_array[ind,]-predicted_state[(ind-1)%%31+1,])^2)
+  }
+  MSE_df[i,1]=i
+  MSE_df[i,2]=sum(SSE_total[test_ind])/5
+  MSE_df[i,5]=sum(SSE_total[-test_ind])/94
+}
+
+```
+Plot the distribution of train and test MSE for each iteration:
+
+```{r}
+par(mfrow=c(1,1))
+hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
+hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
+```
+
+And...the approximated transition rate matrices for each time interval:
+
+```{r}
+rate<-matrix(0,nrow=4,ncol=3)
+
+for (era in 1:4){
+  D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
+  for(j in 1:3){
+    rate[era,j] <- res$par[paste0("rate[", era,",", j,"]")]
+  }
+  #h_ <- hist(rate[era,], breaks=50)
+  #print(h_$counts * h_$breaks)
+  print(paste0("Era:",era))
+  print(D)
+}
+```
+Finally, we'll plot the states predicted by the model:
+
+```{r}
+observed_count = sapply(1:3,function(i) apply(state_matrix,1,function(x) sum(x==i)))
+observed_prop=t(apply(observed_count,1,function(x) x/sum(x)))
+observed_scaled_state = exp(exp(exp(observed_prop)))/10
+observed_scaled_state = t(apply(observed_scaled_state,1,function(x) x/sum(x)))
+scaled_state=exp(exp(exp(predicted_state)))/10
+scaled_state =  t(apply(scaled_state,1,function(x) x/sum(x)))
+
+ship_observed_state = data.frame(ship_id=rep(1:99,31),time=factor(rep(1:31,each=99)),state=states)
+total_count_df=data.frame(time=factor(rep(1:31,3)),states=factor(rep(1:3,each=31)),observed=c(observed_count),predicted=c(predicted_state)*99)
+test_count_df = data.frame(time=rep(1:31,5),observed=c(state_matrix[,test_ship_ind]),ship_ind=factor(rep(test_ship_ind,each=31)),predicted_max=rep(apply(predicted_state,1,which.max),5))
+
+legend_size = 5
+
+# ggplot(total_count_df, aes(x = time, y = states)) +
+# geom_point(aes(colour="observed", size = observed),alpha=1) +
+# geom_point(aes(colour="predicted", size = predicted),alpha=0.4) +
+# scale_size(breaks = c(-3:3), range = c(1,30)) +
+# guides(
+#   size=guide_legend(override.aes = list(size = legend_size))
+# ) 
+
+total_df=data.frame(time=rep(1:31,3),states=rep(1:3,each=31),observed=c(observed_count),predicted=c(predicted_state)*99)
+
+ggplot(test_count_df, aes(x = time, y = observed)) +
+geom_line(aes(colour=ship_ind),size=1.2) +
+coord_cartesian(ylim = c(0.5, 3.5)) +
+geom_point(aes(colour=ship_ind),size=3) +
+geom_point(data=total_df, aes(x=time,y=states, size = predicted),color="red",alpha=0.1) +
+scale_size(breaks = c(-3:3), range = c(1,30)) +
+guides(
+  size=guide_legend(override.aes = list(size = legend_size))
+) 
+
+# ggplot(test_count_df, aes(x = time, y = observed)) +
+# geom_line(aes(colour=ship_ind),size=1.2) +
+# coord_cartesian(ylim = c(0.5, 3.5)) +
+# geom_point(aes(colour=ship_ind),size=3) +
+# geom_point(aes(x=time,y=predicted_max),size=10,color="red",alpha=0.2)
+```
