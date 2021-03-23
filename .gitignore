@@ -16,3 +16,4 @@
 !*.py
 !*.md
 !*.pdf
+.Rproj.user
