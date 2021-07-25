@@ -10,19 +10,22 @@ In the presence of limited data, impute raw data with certified assumptions and 
  - incorporate expert knowledge on distribution and range of data 
  - construct test set for each scenario. For hierarchical model (HM), each layer needs separate examination; for HM where information is pooled among the engines that share and among the ships that share the engine among the ships  shared engine layer, two testship with out of sample engine   insample engine but  engine with be examined. out of sample type or known exists but unobserved and doesn't exist (e.g. failure of ). 
 
-2. `Theta_bar_theta` in parameter space. (todo refactoring)
+2. `X_bar_x` in parameter space. (todo refactoring)
  - generate scaled timeseries features: trend, seasonality, event, self-lag etc.
  - generate hierarchical feature i.e. group index 
  - select feature. e.g. blackbox forward and backward selection algorithm while more adaptive spike-and-slad (todo) or more transparent causal effect based selection (todo) are possible                                                  
 
-3. `Theta_bar_Y` is from data to parameter space. 
- - Infer parameter values given data 
- - `extreme` increase estimation/simulation efficiency using splitting, exploiting regeneration structure**, verification techniques to model extreme event where `Theta_bar_Y` is highly inefficient 
+3. `Theta_bar_Y_bar_X` is from data to parameter space. 
+ - infer parameter values given data for each predictor
+ - design pooling structure between different predictors with the assumption: Theta_bar_Y|X = a is similar to Theta_bar_Y|X = b
+ - `extreme` increase estimation/simulation efficiency using splitting, exploiting regeneration structure**, verification techniques to model extreme event where `Theta_bar_Y_bar_X` is highly inefficient 
 
 4. `QI_bar_Theta` is from parameter to QI space.
- - Predict failure counts or period
- -  Schedule two types of maintenance: preventive triggered by inspection and corrective 
-
+ - marginalize out nuisance parameter to calculate posterior of continuous QI (e.g. scaled failure counts) or marginal likelihood of discrete QI (e.g. preventive maintenance period)s: schedule two types of maintenance: preventive triggered by inspection & corrective 
+ - remove the middle target (prediction) to directly address the decision problem ([Bayesian optimization](https://ieeexplore.ieee.org/document/7352306), [Smart predict then optimize](https://www.ima.umn.edu/materials/2018-2019.1/W10.3-5.18/27490/SPO_121317.pdf))  
+ - design pooling strucutre in data space: determine the model weight for Bayesian model averaging and stacking especially in HM (todo)
+ - design pooling strucutre in parameter space: aggregate parameter distribution from different models on joint parameter space (todo)
+ - identify QI options based system requirement e.g. QI = preventive maintenance triggered by inspection & corrective 
 
 ### References:
 #### Modeling
