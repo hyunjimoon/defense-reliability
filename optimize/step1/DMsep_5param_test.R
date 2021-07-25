@@ -1,4 +1,4 @@
-#setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
+setwd("C:/Users/serim/Documents/GitHub/reliability_prediction")
 
 source(file.path(getwd(), "impute/mice_imputation.R"))
 scriptDir <- getwd()
@@ -15,7 +15,7 @@ imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
 imputed_data$y_data <- unlist(c(imputed_data_gp))
 
 
-  #################################### DM_sep
+#################################### DM_sep
 # original policy (wihtout pm)
 n_state = 3
 initial_state = 1
@@ -40,9 +40,10 @@ for(i in 1:length(states)){
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
 set.seed(210106)
 
-iter=1000
+iter=1
 
-MSE_df<-data.frame(index=rep(0,iter),test_MSE=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),rate1=rep(0,iter),rate2=rep(0,iter),rate3=rep(0,iter))
+MSE_df<-data.frame(index=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),test_MSE=rep(0,iter))
+rate_array<-data.frame(era=c(),index=c(),rate=c())
 D_array <- array(0, dim=c(iter,4,3,3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
 
@@ -54,7 +55,11 @@ for (i in 1:iter){
   test_data <- onehot_array[test_ind, ]
   opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
   
-  res <- optimizing(model_DMsep, opt_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
+  #res <- optimizing(model_DMsep, opt_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
+  sampling_res<-sampling(model_DMsep,opt_data, iter = 10000)
+  res_df<-as.data.frame(sampling_res)
+  sample_mean<-apply(res_df,2,mean)
+  write.csv(sample_mean,"sampling_mean.csv")
   
   predicted_state<-matrix(0,nrow=31,ncol=3)
   DM_pow<-array(0,dim=c(31,3,3))
@@ -67,43 +72,108 @@ for (i in 1:iter){
     }
     predicted_state[t,]=DM_pow[t,,]%*%c(1,0,0)
   }
-  MSE_df[i,3]=res$par["p"]
-  MSE_df[i,4]=res$par["q"]
+  MSE_df[i,2]=res$par["p"]
+  MSE_df[i,3]=res$par["q"]
   
   for (era in 1:4){
     D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
     D_array[i,era,,]=D
   }
-  MSE_df[i,6]=res$par["rate[3,1]"]
-  MSE_df[i,7]=res$par["rate[3,2]"]
-  MSE_df[i,8]=res$par["rate[3,3]"]
+  for (era in 1:4){
+    for (index in 1:3){
+      rate_array<-rbind(rate_array,data.frame(era=era,index=index,rate=res$par[paste0("rate[",era,",",index,"]")]))
+    }
+  }
   
   SSE_total = rep(0,nrow=99*31)
   for (ind in 1:(99*31)){
     SSE_total[ind]=sum((onehot_array[ind,]-predicted_state[(ind-1)%%31+1,])^2)
   }
   MSE_df[i,1]=i
-  MSE_df[i,2]=sum(SSE_total[test_ind])/5
-  MSE_df[i,5]=sum(SSE_total[-test_ind])/94
+  MSE_df[i,5]=sum(SSE_total[test_ind])/5
+  MSE_df[i,4]=sum(SSE_total[-test_ind])/94
   
   print(paste0(i,"th iteration finished"))
 }
+
 
 par(mfrow=c(1,1))
 hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
 hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
 #hist(MSE_df$r,breaks=100,main="r",xlab="r")
 
+
+
+mean_rate=matrix(0,4,3)
+sd_rate=matrix(0,4,3)
+
+rate_vector<-array(0, dim=c(3,4,872))
+
+par(mfrow=c(1,1))
+
+for(i in 1:3){
+  for(era in 1:4){
+    k=1
+    for (j in 1:10464){
+      if (rate_array[j,1]==era && rate_array[j,2]==i){
+        rate_vector[i,era,k]=rate_array[j,3]
+        k=k+1
+        }
+    }
+  }
+  ymax=max(density(rate_vector[i,1,])$y,density(rate_vector[i,2,])$y,density(rate_vector[i,3,])$y,density(rate_vector[i,4,])$y)
+  xmin=min(rate_vector[i,,])
+  xmax=max(rate_vector[i,,])
+  hist(-100,ylim=c(0,ymax),xlim=c(xmin,xmax),main=paste0("Lambda ",i),xlab="",freq=FALSE)
+  lines(density(rate_vector[i,1,]),lwd=2)
+  lines(density(rate_vector[i,2,]),lwd=2,col="red")
+  lines(density(rate_vector[i,3,]),lwd=2,col="blue")
+  lines(density(rate_vector[i,4,]),lwd=2,col="green")
+  legend("topleft", legend=c("1", "2","3","4"),
+         col=c("black","red", "blue","green"), lty=1,
+         title="Period", text.font=4, bg='lightblue')
+}
+
+
+
 par(mfrow=c(3,3))
-for(era in 1:4){
-  for(i in 1:3){
-    for(j in 1:3){
-    hist(D_array[,era,i,j],breaks=100,main=paste0("Histogram of D[",i,",",j,"] of Era ", era),xlab=paste0("D[",i,",",j,"]"))
-   }
+
+
+for(i in 1:3){
+  for(j in 1:3){
+    if ((j==3) || (i==1 && j==2)){
+      hist(c(-0.0000001,rep(0,871)),breaks="fd",main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(-0.5,0.5))
+    }
+    else if (i==1 && j==1){
+      hist(c(1-.0000001,rep(1,871)),breaks="fd",main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0.5,1.5))
+      print(paste0(mean(D_array[1:872,era,i,j]),"is mean of era",era,", i,j:",i,j))
+      print(paste0(sd(D_array[1:872,era,i,j]),"is sd of era",era,", i,j:",i,j))
+    }
+    else if (i==2 && j==1){
+      hist(MSE_df$p[1:872],breaks=100,main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0,1))
+      print(paste0(mean(MSE_df$p[1:872]),"is mean of p"))
+      print(paste0(sd(MSE_df$p[1:872]),"is sd of p"))
+    }
+    else if (i==3 && j==1){
+      hist(MSE_df$q[1:872],breaks=100,main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0,1))
+      print(paste0(mean(MSE_df$q[1:872]),"is mean of q"))
+      print(paste0(sd(MSE_df$q[1:872]),"is sd of q"))
+      
+    }
+    else if (i==2 && j==2){
+      hist(1-MSE_df$p[1:872],breaks=100,main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0,1))
+      
+    }
+    else if (i==3 && j==2){
+      hist(1-MSE_df$q[1:872],breaks=100,main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0,1))
+      
+    }
   }
 }
 
-##ggplot(data.frame(p=rate_array[, 3, 3], two=D_array[,3,2,2]), aes(x=p, y=two)) + geom_point()
+
+
+
 
 ############################## 
 ##############################
