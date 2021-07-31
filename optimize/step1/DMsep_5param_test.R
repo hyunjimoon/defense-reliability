@@ -56,7 +56,7 @@ for (i in 1:iter){
   opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
   
   #res <- optimizing(model_DMsep, opt_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
-  sampling_res<-sampling(model_DMsep,opt_data, iter = 10000)
+  sampling_res<-sampling(model_DMsep,opt_data, iter = 2000)
   res_df<-as.data.frame(sampling_res)
   sample_mean<-apply(res_df,2,mean)
   write.csv(sample_mean,"sampling_mean.csv")
