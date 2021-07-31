@@ -8,12 +8,23 @@ data {
 
 transformed data {
   vector[n_state] initial;
+  matrix[n_state, n_state] Cov_error;
   for(i in 1:n_state){
     initial[i] = 0;
     if(i == initial_state){
       initial[i] = 1;
     }
   }
+  
+  Cov_error[1,1]=1;
+  Cov_error[1,2]=0.0001;
+  Cov_error[2,1]=0.0001;
+  Cov_error[2,2]=1;
+  Cov_error[2,3]=-1;
+  Cov_error[3,2]=-1;
+  Cov_error[1,3]=-1;
+  Cov_error[3,1]=-1;
+  Cov_error[3,3]=2;
 }
 
 parameters {
@@ -27,6 +38,7 @@ transformed parameters {
   matrix[n_state, n_state] DM_pow[31];
   matrix[n_state, n_state] D[4];
   matrix <lower =0>[n_state, n_state] M;
+  
   
   M[1,1]=1;
   M[1,2]=p;
@@ -69,10 +81,11 @@ transformed parameters {
 }
 
 model {
-
+  
   for(i in 1:N){
-    target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
+    
+    //target += -(DM_pow[time_obs[i]]  * initial - state_obs[i])'*(DM_pow[time_obs[i]] * initial - state_obs[i]);
+    target += multi_normal_lpdf(state_obs[i] |DM_pow[time_obs[i]]  * initial, Cov_error);
     //target += dot_product(log(DM_pow[time_obs[i]]  * initial), state_obs[i]); // cross entropy
   }
-  print("target:", target());
 }
