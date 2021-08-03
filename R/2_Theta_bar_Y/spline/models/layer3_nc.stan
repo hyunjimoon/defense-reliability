@@ -1,33 +1,32 @@
+
 data {
     int <lower = 1> K; // number of basis functions
     int <lower = 1> N; // number of total values
     int <lower = 1> T; // time length of data
-    int <lower = 1> S; // number of obj  e.g ship
+    int <lower = 1> S; // number of x_atom  e.g ship
     int <lower = 1> E; // number of unique cat  e.g engine
     int <lower = 1> age[N];
-    int <lower = 1> obj[N]; // obj type mapping
-    int <lower = 1> cat[S]; //obj_ID to category map
+    int <lower = 1> x[N]; // x type mapping (id to seriaal #)
+    int <lower = 1> cat[S]; //x_ID to category map
     matrix[T,K] B; // spline values, 2d array
     vector [N] Y; // actual values
 }
 
 parameters {
-    real mu_a_bar; // model
-    vector[K] mu_w_bar; // model
-    real<lower=0> s_a; // model
-    real<lower=0> s_w; // model
-    vector[S] s_a_tilde; // model
+    //first layer - meta cat
+    real<lower = 0> s_a_bar;
+    real<lower = 0> s_w_bar;
+    vector[E] eta_a_bar;
+    vector[E] eta_w_bar;
+    real mu_a_bar;
+    vector[K] mu_w_bar;
+    //second layer- per cat
+    real<lower=0> s_a;
+    real<lower=0> s_w;
+    vector[S] eta_a;
+    vector[S] eta_w;
 
-    vector[S] s_w_tilde; // model
-
-    real<lower = 0> s_a_bar; // model
-    real<lower = 0> s_w_bar; // model
-
-    vector[E] s_a_bar_tilde; // model
-
-    vector[E] s_w_bar_tilde; // model
-
-    real<lower=0> s_Y; // model
+    real<lower=0> s_Y;
 }
 
 transformed parameters {
@@ -39,38 +38,34 @@ transformed parameters {
 
     for (e in 1:E){
         //a_bar[e] ~ normal(mu_a_bar, s_a_bar);
-        a_bar[e] = mu_a_bar + s_a_bar * s_a_bar_tilde[e];
+        a_bar[e] = mu_a_bar + s_a_bar * eta_a_bar[e];
         //w_bar[e] ~ normal(mu_w_bar,s_w_bar);
-        w_bar[e] = mu_w_bar + s_w_bar * s_w_bar_tilde[e];
+        w_bar[e] = mu_w_bar + s_w_bar * eta_w_bar[e];
     }
     for (s in 1:S){
         //a[s] ~ normal(a_bar[S2F[s]], s_a)
-        a[s] = a_bar[cat[s]] + s_a * s_a_tilde[s];
-        w[s] = w_bar[cat[s]] + s_w * s_w_tilde[s];
+        a[s] = a_bar[cat[s]] + s_a * eta_a[s];
+        w[s] = w_bar[cat[s]] + s_w * eta_w[s];
     }
     for (n in 1: N){
-        mu[n] = a[obj[n]] + B[age[n]] * w[obj[n]];
+        mu[n] = a[x[n]] + B[age[n]] * w[x[n]];
     }
 }
 
 model {
     mu_a_bar ~ normal(0, 1);
     mu_w_bar ~ normal(0, 1);
-
     s_a_bar ~ normal(0, 2);
     s_w_bar ~ gamma(2, 1.7);
 
-    s_a_bar_tilde ~ normal(0, 1);
-    s_w_bar_tilde ~ normal(0, 1);
+    eta_a_bar ~ normal(0, 1);
+    eta_w_bar ~ normal(0, 1);
 
-    //s_a ~ exponential(0.5);
+    //s_w, s_a ~ exponential(0.5);
     s_a ~ gamma(5, 2);
-    //s_w ~ exponential(0.5);
     s_w ~ gamma(5, 2);
-
-    s_a_tilde ~ normal(0, 1); // normal(0,1)
-    s_w_tilde ~ normal(0, 1);
-
+    eta_a ~ normal(0, 1);
+    eta_w ~ normal(0, 1);
     s_Y ~ exponential(1); // exponential(4)
 
     Y ~ normal(mu, s_Y);
@@ -83,6 +78,6 @@ generated quantities{
     }
     //real y_new_pred[N]; // posterior predictive sampling
     //for (i in 1:N) {
-          //  y_new_pred[i] = normal_rng(a[obj_hat[i]] + B[age_hat[i]] * w[obj_hat[i]], s_Y);
+          //  y_new_pred[i] = normal_rng(a[x_hat[i]] + B[age_hat[i]] * w[x_hat[i]], s_Y);
         //}
 }
