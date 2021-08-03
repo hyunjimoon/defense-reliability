@@ -1,73 +1,68 @@
 data {
-  int<lower=0> N; // numbmer of observations
-  int<lower=1>n_state; // number of states
-  vector[n_state] state_obs[N];
-  int time_obs[N];
-  int<lower=0, upper=n_state> initial_state;
+  int<lower=0> N; // numbmer of obs
+  int<lower=0> T; // number of time bins = max age
+  int<lower=1>S; // number of states
+  int<lower=1> P; // number of periods for inhomogenous dtr.
+  int<lower=0, upper =S> states[N]; //observed state
+  int obs2age[N]; // map obs to age
+  int<lower=0, upper=S> initial_state;
 }
 
 transformed data {
-  vector[n_state] initial;
-  for(i in 1:n_state){
-    initial[i] = 0;
-    if(i == initial_state){
-      initial[i] = 1;
-    }
-  }
+  vector[S] initial;
+  vector<lower=0>[S] alpha;
+  vector<lower=0>[S] beta;
+  initial = rep_vector(0, S);
+  initial[initial_state] = 1;
+  alpha = rep_vector(3,3);
+  beta = rep_vector(3,3);
 }
 
 parameters {
-  real<lower=0> rate[4,3];
-  real<lower=0, upper=1> p;
-  real<lower=0, upper=1> q;
-  cholesky_factor_corr[n_state] C;
+  real<lower=0> rate[P, S];
+  real<lower=0, upper=1> p21;
+  real<lower=0, upper=1> p31;
   //real<lower=0, upper=1> r;
+  //simplex[K] theta[K];        // transit probs
 }
 
 transformed parameters {
-  matrix[n_state, n_state] DM_pow[31];
-  matrix[n_state, n_state] D[4];
-  matrix <lower =0>[n_state, n_state] M;
-  M[1,1]=1;
-  M[1,2]=p;
-  M[1,3]=q;
-  M[2,1]=0;
-  M[2,2]=(1-p);
-  M[2,3]= (1-q);
-  M[3,1]=0;
-  M[3,2]=0;
-  M[3,3]= 0; //(1-q-r);
-
-  for(i in 1:4){
-    D[i][1,1] = exp(-(rate[i,1]+ rate[i,2]));
-    D[i][2,1] = rate[i,1] * exp(-rate[i,3]) * (1-exp(-(rate[i,1]+ rate[i,2] - rate[i,3]))) / (rate[i,1]+ rate[i,2] - rate[i,3]);
-    D[i][1,2] = 0;
-    D[i][3,1] = 1 - D[i][1,1] - D[i][2,1];
-    D[i][2,2] = exp(-rate[i,3]);
-    D[i][3,2] = 1 - D[i][2,2];
-    D[i][1,3] = 0;
-    D[i][2,3] = 0;
-    D[i][3,3] = 1;
+  simplex[S] Dtr[P,S]; // Deterioration
+  simplex[S] Mnt[S]; // Maintenance
+  simplex[S] DM_pow[T, S];
+  matrix[S, S] tmp_p;
+  // Deterioration by period
+  // is left stoch. matrix, transpose of eq.13 from the paper
+  for(p in 1:P){
+    tmp_p[1,1] = exp(-rate[p,1]- rate[p,2]);
+    tmp_p[2,1] = rate[p,1] * exp(-rate[p,3]) * (1-exp(-(rate[p,1]+ rate[p,2] - rate[p,3]))) / (rate[p,1]+ rate[p,2] - rate[p,3]);
+    tmp_p[3,1] = exp(-rate[p,3]);
+    Dtr[p,1] = to_vector([tmp_p[1,1], tmp_p[2,1],1 - tmp_p[1,1] - tmp_p[2,1]]);
+    Dtr[p,2] = to_vector([0, tmp_p[3,1], 1 - tmp_p[3,1]]);
+    Dtr[p,3] = to_vector([0, 0,1]);
   }
-
-  DM_pow[1] = D[1];
-  for (i in 2:max(time_obs)){
-    if (i <= 8){
-      DM_pow[i] = D[1] * M * DM_pow[i-1];
-    }
-    else if (i <=20){
-      DM_pow[i] = D[2] * M * DM_pow[i-1];
-    }
-    else if (i <=26){
-      DM_pow[i] = D[3] * M * DM_pow[i-1];
-    }
-    else{
-      DM_pow[i] = D[4] * M * DM_pow[i-1];
-    }
+  // Inhomogenous Dtr
+  DM_pow[1] = Dtr[1];
+  for (t in 2:T){
+    if (t <= 8){DM_pow[t] = Dtr[1] * Mnt * DM_pow[t-1];}
+    else if (t <=20){DM_pow[t] = Dtr[2] * Mnt * DM_pow[t-1];}
+    else if (i <=26){DM_pow[t] = Dtr[3] * Mnt * DM_pow[t-1];}
+    else{DM_pow[t] = Dtr[4] * M * DM_pow[t-1];}
   }
+  // Maintenance
+  // is left stoch. matrix, transpose of eq.14 from the paper
+  Mnt[1] = to_vector([1, 0, 0]);
+  Mnt[2] = to_vector([p21,1- p21, 0]);
+  Mnt[3] = to_vector([p31, 1- p31, 0]);
 }
-
 model {
-    C ~ lkj_corr_cholesky(1);
-    state_obs ~ multi_normal_cholesky(DM_pow[time_obs]  * initial, C);
+  for (s in 1:S){
+    Mnt[s] ~  dirichlet(alpha);
+    for (p in 1:P){
+      Dtr[p, s] ~ dirichlet(beta);
+    }
+  }
+  for (t in 1:T){
+    states[t] ~ categorical(DM_pow[t, states[t-1]]);
+  }
 }

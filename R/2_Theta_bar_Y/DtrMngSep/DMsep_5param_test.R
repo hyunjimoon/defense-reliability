@@ -1,19 +1,18 @@
-source(file.path(getwd(), "impute/mice_imputation.R"))
+source(file.path(getwd(), "R/1_Y_bar_y/impute/mice_imputation.R"))
 scriptDir <- getwd()
+set.seed(210106)
 library(rstan)
 library(ggplot2)
 library(scales)
 
-# mice imputation for comparison
+model_DMsep <- stan_model(file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan"), verbose = FALSE) #approx_deterioration_matrix
+
 mice_imp <- generateMice()
 imputed_data<- complete(mice_imp, 1)
 
-# gp imputation (1step and performance better than mice imputation)
 imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
 imputed_data$y_data <- unlist(c(imputed_data_gp))
-
 #################################### DM_sep
-model_DMsep <- stan_model(file.path(getwd(), "optimize/step1/DMsep_5param.stan"), verbose = FALSE) #approx_deterioration_matrix
 # original policy (wihtout pm)
 n_state = 3
 initial_state = 1
@@ -26,17 +25,7 @@ generate_state_matrix <- function(data, n){
 }
 
 state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
-states <- as.vector(t(state_matrix)) #[imputed_data$engine_ind == engine_type] shiptype -> year
-onehot <- list()
-# one-hot encode per-data state to vector
-for(i in 1:length(states)){
-  t_tmp <- rep(0, len=n_state)
-  t_tmp[states[i]] <- 1
-  onehot[[i]] <- t_tmp
-}
-
-onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
-set.seed(210106)
+states <- as.vector(t(state_matrix))
 
 iter=1
 
@@ -49,12 +38,13 @@ for (i in 1:iter){
   test_ship_ind= sort(sample(1:99,5)) #c(17,20,24,77,82)
   ship_ind_df[i,]=test_ship_ind
   test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
-  train_data <- onehot_array[-test_ind, ]
-  test_data <- onehot_array[test_ind, ]
-  opt_data <- list(N= dim(train_data)[1], n_state=n_state, state_obs=train_data, time_obs=imputed_data$age_ind[-test_ind], initial_state=initial_state)
 
-  #res <- optimizing(model_DMsep, opt_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
-  sampling_res<-sampling(model_DMsep,opt_data, iter = 10000)
+  train_data <- states[-test_ind]
+  test_data <- states[test_ind]
+  stan_data <- list(N= dim(train_data)[1], n_state=n_state, P = 4, state_obs=train_data, obs2age=imputed_data$age_ind[-test_ind], T = max(imputed_data$age_ind[-test_ind]),initial_state=initial_state)
+
+  #res <- optimizing(model_DMsep, stan_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
+  sampling_res<-sampling(model_DMsep,stan_data, iter = 2000)
   res_df<-as.data.frame(sampling_res)
   sample_mean<-apply(res_df,2,mean)
   write.csv(sample_mean,"sampling_mean.csv")
@@ -116,7 +106,7 @@ for(i in 1:3){
       if (rate_array[j,1]==era && rate_array[j,2]==i){
         rate_vector[i,era,k]=rate_array[j,3]
         k=k+1
-        }
+      }
     }
   }
   ymax=max(density(rate_vector[i,1,])$y,density(rate_vector[i,2,])$y,density(rate_vector[i,3,])$y,density(rate_vector[i,4,])$y)
