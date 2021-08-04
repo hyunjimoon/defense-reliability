@@ -111,7 +111,7 @@ for(i in 1:n_data){
 }
 onehot_array <- aperm(array(unlist(onehot),c(n_state, length(onehot)))) # array() fills column-wise first
 data_tpl <- list(n_data = dim(onehot_array)[1], n_state=n_state, n_period = n_period, n_age = n_age, state_obs=onehot_array,
-     time_obs=imputed_data$age_ind, initial_state=initial_state)
+     time_obs=imputed_data$age_ind, initial_state=initial_state,P = 4)
 N = 10
 M = 10 # 40
 workflow <- SBCWorkflow$new(DMSep, generator())

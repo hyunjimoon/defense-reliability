@@ -28,20 +28,19 @@ state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
 states <- as.vector(t(state_matrix))
 
 iter=1
-
 MSE_df<-data.frame(index=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),test_MSE=rep(0,iter))
 rate_array<-data.frame(era=c(),index=c(),rate=c())
 D_array <- array(0, dim=c(iter,4,3,3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
 
 for (i in 1:iter){
-  test_ship_ind= sort(sample(1:99,5)) #c(17,20,24,77,82)
+  test_ship_ind= c(17,20,24,77,82)#sort(sample(1:99,5)) #c(17,20,24,77,82)
   ship_ind_df[i,]=test_ship_ind
   test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
 
   train_data <- states[-test_ind]
   test_data <- states[test_ind]
-  stan_data <- list(N= dim(train_data)[1], n_state=n_state, P = 4, state_obs=train_data, obs2age=imputed_data$age_ind[-test_ind], T = max(imputed_data$age_ind[-test_ind]),initial_state=initial_state)
+  stan_data <- list(N= length(train_data),T = max(imputed_data$age_ind[-test_ind]), S = 3, P = 4, states=train_data, obs2time=imputed_data$age_ind[-test_ind], initial_state=initial_state)
 
   #res <- optimizing(model_DMsep, stan_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
   sampling_res<-sampling(model_DMsep,stan_data, iter = 2000)
@@ -75,7 +74,7 @@ for (i in 1:iter){
 
   SSE_total = rep(0,nrow=99*31)
   for (ind in 1:(99*31)){
-    SSE_total[ind]=sum((onehot_array[ind,]-predicted_state[(ind-1)%%31+1,])^2)
+    SSE_total[ind]=sum((test_data[ind]-predicted_state[(ind-1)%%31+1,])^2)
   }
   MSE_df[i,1]=i
   MSE_df[i,5]=sum(SSE_total[test_ind])/5
