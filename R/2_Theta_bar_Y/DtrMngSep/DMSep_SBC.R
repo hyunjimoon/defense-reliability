@@ -14,10 +14,10 @@ N = 3069
 T = 31
 S = 3
 P = 4
-p21 <- 0.1 #true$x[true$X== "p21"]
-p31 <- 0.2 #true$x[true$X== "p31"]
-rate <- matrix(nrow = P, ncol = S)
-for (i in 1:P) for (j in 1:S) rate[i,j] <- true$x[true$X== sprintf("rate[%s,%s]",  i, j)]
+p21 <-true$x[true$X== "p21"]  #0.1 #
+p31 <- true$x[true$X== "p31"] #0.2 #
+rate <- rep(NA, S);
+for (j in 1:S) rate[j] <- true$x[true$X== sprintf("rate[%s]", j)]
 true_pars <-list(p21, p31, rate)
 
 generator <- function(){
@@ -31,6 +31,7 @@ generator <- function(){
     initial_state = 1
     init_state_vec = rep(0, S);
     init_state_vec[initial_state] = 1
+    latent_states = array(NA, dim=c(T,S))
     # Hyperparameter -> receive as input
     p21 = true_pars[[1]]
     p31 = true_pars[[2]]
@@ -38,24 +39,17 @@ generator <- function(){
     # Maintenance
     Mnt = array(c(1, 0, 0, p21, 1- p21, 0, p31, 1-p31,0), dim=c(S,S))
     # Deterioration
-    DM_pow <- array(rep(1, S * S * T), dim=c(S, S, T))
     tmp_p <- array(rep(0, S * S), dim=c(S,S))
-    Dtr <- array(rep(0, S * S * P), dim=c(S, S, P))
-    for(p in 1:P){
-      tmp_p[1,1] = exp(-rate[p,1]- rate[p,2]);
-      tmp_p[2,1] = rate[p,1] * exp(-rate[p,3]) * (1-exp(-(rate[p,1]+ rate[p,2] - rate[p,3]))) / (rate[p,1]+ rate[p,2] - rate[p,3]);
-      tmp_p[3,1] = exp(-rate[p,3]);
-      Dtr[,,p] = array(c(tmp_p[1,1], tmp_p[2,1], 1- tmp_p[1,1], 0, tmp_p[3,1], 1 - tmp_p[3,1], 0,0,1))
-    }
-    DM_pow[,,1] = Dtr[,,1];
+    tmp_p[1,1] = exp(-rate[1]- rate[2]);
+    tmp_p[2,1] = rate[1] * exp(-rate[3]) * (1-exp(-(rate[1]+ rate[2] - rate[3]))) / (rate[1]+ rate[2] - rate[3]);
+    tmp_p[3,1] = exp(-rate[3]);
+    Dtr <- array(c(tmp_p[1,1], tmp_p[2,1], 1- tmp_p[1,1], 0, tmp_p[3,1], 1 - tmp_p[3,1], 0,0,1), dim=c(S, S))
+    latent_states[1,] = Dtr %*% init_state_vec;
     for (t in 2:T){
-      if (t <= 8){ DM_pow[,,t] = Dtr[,,1] * Mnt * DM_pow[,,t-1];} # colsum is 1 for right stoch.matrix
-      else if (t <=20){ DM_pow[,,t] = Dtr[,,2] * Mnt * DM_pow[,,t-1];}
-      else if (t <=26){DM_pow[,,t] = Dtr[,,3] * Mnt * DM_pow[,,t-1];}
-      else{DM_pow[,,t] = Dtr[,,4] * Mnt * DM_pow[,,t-1];}
+      latent_states[t,] =  (Dtr %*% Mnt) %*% latent_states[t-1,];
     }
   list(
-    generated = lapply(seq(1:length(obs2time)), function(i){sample(c(1,2,3), 1, prob = c(DM_pow[,,obs2time[i]] %*% init_state_vec))}),
+    generated = lapply(seq(1:length(obs2time)), function(n){sample(c(1,2,3), 1, prob = latent_states[obs2time[n],])}),
     parameters = list(
       p21 = p21,
       p31 = p31,
@@ -81,16 +75,6 @@ SBC_M = 500 # 40
 workflow <- SBCWorkflow$new(DMSep, generator())
 workflow$simulate(SBC_N, true_pars)
 stan_data$states <- unlist(posterior::draws_of(posterior::subset_draws(workflow$simulated_y, variable="y")$y))
-#write.csv(unlist(as_draws_df(workflow$simulated_y))$y, file = "sim_y.csv")
+write.csv(stan_data$states, file = "sim_y.csv")
 summary(stan_data$states)
-sampling_res<-DMSep$sample(data = stan_data,iter_warmup =1000,  iter_sampling = 1000)
-res_df<-as.data.frame(sampling_res)
-sample_mean<-apply(res_df,2,mean)
-
-# using SBC package TODO
-workflow$fit_model(sample_iterations = SBC_M, warmup_iterations = 500, stan_data)
-prior <- workflow$prior_samples
-post <- workflow$posterior_samples
-workflow$calculate_rank()
-plot_ecdf(workflow, var = "theta")
-plot_ecdf_diff(workflow, var="theta")
+sampling_res<-DMSep$sample(data = stan_data,iter_warmup =1000,  iter_sampling = 1000, parallel_chains = 4)

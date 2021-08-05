@@ -2,10 +2,12 @@ source(file.path(getwd(), "R/1_Y_bar_y/impute/mice_imputation.R"))
 scriptDir <- getwd()
 set.seed(210106)
 library(rstan)
+library(cmdstanr)
 library(ggplot2)
 library(scales)
 
-model_DMsep <- stan_model(file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan"), verbose = FALSE) #approx_deterioration_matrix
+#cmdstan: model_DMsep <-stan_m(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
+model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
 
 mice_imp <- generateMice()
 imputed_data<- complete(mice_imp, 1)
@@ -40,12 +42,11 @@ test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
 train_data <- states[-test_ind]
 test_data <- states[test_ind]
 stan_data <- list(N= length(train_data),T = max(imputed_data$age_ind[-test_ind]), S = 3, P = 4, states=train_data, obs2time=imputed_data$age_ind[-test_ind], initial_state=initial_state)
-
-#res <- optimizing(model_DMsep, stan_data, iter = 2000, verbose = TRUE,hessian = TRUE, history_size=10, init = list(rate=array(c(0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1,0.5,0.5,0.5,0.5), dim = c(4, 3))))
-sampling_res<-sampling(model_DMsep,stan_data, iter = 2000)
+sampling_res<-sampling(model_DMsep,stan_data, iter = 2000, cores=4)
 res_df<-as.data.frame(sampling_res)
-sample_mean<-apply(res_df,2,mean)
-  
+sample_mean<-apply(res_df,2,mean) #write.csv(sample_mean, "./data/DMSep_validation_trueparam.csv")
+
+# deprecated - may change DM_pow to latent_states
 predicted_state<-matrix(0,nrow=31,ncol=3)
 DM_pow<-array(0,dim=c(31,3,3))
 
@@ -81,7 +82,7 @@ MSE_df[i,1]=i
 MSE_df[i,5]=sum(SSE_total[test_ind])/5
 MSE_df[i,4]=sum(SSE_total[-test_ind])/94
 
-    
+
 
 par(mfrow=c(1,1))
 hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
