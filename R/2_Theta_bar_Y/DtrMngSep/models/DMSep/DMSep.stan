@@ -31,7 +31,7 @@ transformed parameters {
   matrix[S, S] DM_pow[T];
   //simplex[S] DM_pow[T, S];
   matrix[S, S] tmp_p;
-  
+
   // Maintenance
   // is left stoch. matrix, transpose of eq.14 from the paper
   Mnt = [[1, p21, p31],
@@ -50,25 +50,14 @@ transformed parameters {
   // Inhomogenous Dtr
   DM_pow[1] = Dtr[1];
   for (t in 2:T){
-    if (t <= 8){
-      DM_pow[t] = Dtr[1] * Mnt * DM_pow[t-1];
-      }
-    else if (t <=20){
-      DM_pow[t] = Dtr[2] * Mnt * DM_pow[t-1];
-      }
-    else if (t <=26){
-      DM_pow[t] = Dtr[3] * Mnt * DM_pow[t-1];
-      }
-    else{
-      DM_pow[t] = Dtr[4] * Mnt * DM_pow[t-1];
-      }
+    if (t <= 8){DM_pow[t] = Dtr[1] * Mnt * DM_pow[t-1];}
+    else if (t <=20){ DM_pow[t] = Dtr[2] * Mnt * DM_pow[t-1];}
+    else if (t <=26){DM_pow[t] = Dtr[3] * Mnt * DM_pow[t-1];}
+    else{DM_pow[t] = Dtr[4] * Mnt * DM_pow[t-1];}
   }
-  
 }
 
 model {
-
-
   for (n in 1:N){
     states[n] ~ categorical(DM_pow[obs2time[n]] * initial);
   }
