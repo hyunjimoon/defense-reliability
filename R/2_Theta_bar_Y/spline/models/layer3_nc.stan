@@ -76,8 +76,8 @@ generated quantities{
     for (i in 1:N) {
         log_lik[i] = normal_lpdf(Y[i]|mu[i], s_Y);
     }
-    //real y_new_pred[N]; // posterior predictive sampling
-    //for (i in 1:N) {
-          //  y_new_pred[i] = normal_rng(a[x_hat[i]] + B[age_hat[i]] * w[x_hat[i]], s_Y);
-        //}
+    real y_new_pred[N]; // posterior predictive sampling
+    for (i in 1:N) {
+            y_new_pred[i] = normal_rng(mu, s_Y);
+    }
 }
