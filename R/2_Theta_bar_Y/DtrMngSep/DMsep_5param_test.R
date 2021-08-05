@@ -48,63 +48,66 @@ res_df<-as.data.frame(sampling_res)
 sample_mean<-apply(res_df,2,mean)
 write.csv(sample_mean[1:338],"sample_mean.csv")
   
-predicted_state<-matrix(0,nrow=31,ncol=3)
-DM_pow<-array(0,dim=c(31,3,3))
+predicted_state<-array(0,dim=c(4000,31,3))
+DM_pow<-array(0,dim=c(4000,31,3,3))
 
-for (t in 1:31){
-  for (k in 1:3){
-    for (j in 1:3){
-      DM_pow[t,k,j]=sample_mean[paste0("DM_pow[",t,",",k,",", j,"]")]
+
+for (iter in 1:4000){
+  for (t in 1:31){
+    for (k in 1:3){
+      for (j in 1:3){
+        DM_pow[iter,t,k,j]=res_df[iter,paste0("DM_pow[",t,",",k,",", j,"]")]
+      }
     }
+    predicted_state[iter,t,]=DM_pow[iter,t,,]%*%c(1,0,0)
   }
-  predicted_state[t,]=DM_pow[t,,]%*%c(1,0,0)
 }
 
-res_df$p21
 
 MSE_df[,2]=res_df$p21
 MSE_df[,3]=res_df$p31
+
+SSE_total = array(0,dim=c(4000,99*31))
+
+to_onehot<-function(x){
+  a=rep(0,3)
+  a[x]=1
+  return (a)
+}
+
+onehot_states<-sapply(states,to_onehot)
+
+for (iter in 1:4000){
+  for (ind in 1:(99*31)){
+    SSE_total[iter,ind]=sum((onehot_states[,ind]-predicted_state[iter,(ind-1)%%31+1,])^2)
+  }
+}
+
+MSE_df[,5]=apply(SSE_total[,test_ind],1,sum)/5
+MSE_df[,4]=apply(SSE_total[,-test_ind],1,sum)/94
+
+png(filename="/Users/choiiiiii/Documents/GitHub/defense-reliability/R/2_Theta_bar_Y/DtrMngSep/figure/train_MSE.png")
+par(mfrow=c(1,1))
+hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
+hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
+#hist(MSE_df$r,breaks=100,main="r",xlab="r")
+dev.off()
 
 D_array=res_df[,15:50]
 
 rate_array<-res_df[,1:12]
 
-rate_array
-
-
-SSE_total = rep(0,nrow=99*31)
-
-for (ind in 1:(99*31)){
-  SSE_total[ind]=sum((test_data[ind]-predicted_state[(ind-1)%%31+1,])^2)
-}
-
-MSE_df[i,5]=sum(SSE_total[test_ind])/5
-MSE_df[i,4]=sum(SSE_total[-test_ind])/94
-
-par(mfrow=c(1,1))
-hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
-hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
-#hist(MSE_df$r,breaks=100,main="r",xlab="r")
-
-
-
-mean_rate=matrix(0,4,3)
-sd_rate=matrix(0,4,3)
-
-rate_vector<-array(0, dim=c(3,4,872))
+rate_vector<-array(0,dim=c(3,4,4000))
 
 par(mfrow=c(1,1))
 
 for(i in 1:3){
   for(era in 1:4){
-    k=1
-    for (j in 1:10464){
-      if (rate_array[j,1]==era && rate_array[j,2]==i){
-        rate_vector[i,era,k]=rate_array[j,3]
-        k=k+1
-      }
+    for (iter in 1:2000){
+      rate_vector[i,era,iter]=rate_array[iter,(i-1)*4+era]
     }
   }
+  png(filename=paste0("/Users/choiiiiii/Documents/GitHub/defense-reliability/R/2_Theta_bar_Y/DtrMngSep/figure/lambda_",i,".png"))
   ymax=max(density(rate_vector[i,1,])$y,density(rate_vector[i,2,])$y,density(rate_vector[i,3,])$y,density(rate_vector[i,4,])$y)
   xmin=min(rate_vector[i,,])
   xmax=max(rate_vector[i,,])
@@ -116,9 +119,11 @@ for(i in 1:3){
   legend("topleft", legend=c("1", "2","3","4"),
          col=c("black","red", "blue","green"), lty=1,
          title="Period", text.font=4, bg='lightblue')
+  dev.off()
 }
 
 
+res_df[1,]
 
 par(mfrow=c(3,3))
 
@@ -150,11 +155,9 @@ for(i in 1:3){
     }
     else if (i==3 && j==2){
       hist(1-MSE_df$q[1:872],breaks=100,main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0,1))
-
     }
   }
 }
-
 
 
 
