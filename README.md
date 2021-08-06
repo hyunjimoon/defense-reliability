@@ -1,7 +1,7 @@
 # Reliabile Defense System
 This repository includes modeling approaches and references on building a reliable defense system. Not only the Bayesian workflow methodologies and its modification to system structure but also the application to real-world problems such as part failure prediction, maintenance policy optimization are our contribution. In `R` folder, topics with the following `keyword_` are sorted. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **QI := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. QI is a quantity of interest which is the function of inferred parameters. Captitalized (X, Y, Theta) represent population random variable (with identified distribution) while the other (x, y, theta) denote sample values (given data). **Systme risk management on top of its vertical and horizontal interaction** is our interest and we use **hierarchical and mixture model** as our main frame.
 
-1. `Y_bar_y` in data space. 
+1. `Y|y` in data space. 
 In the presence of limited data, impute raw data with certified assumptions and construct the generative process from Theta to E[Y].
  - scaling (todo)
  - explore data via conditioning predictor: E[theta|X=a] vs E[theta|X=b]
@@ -10,25 +10,31 @@ In the presence of limited data, impute raw data with certified assumptions and 
  - incorporate expert knowledge on distribution and range of data. 
  - construct test set for each scenario or layer. For K-layer hierarchical model (HM), K possible cases exist that needs separate testing; e.g two-layer HM with 1-5-99 engine_archetype(phi)-engine(theta[1..5])-ship(mu[1..99]). Two testsets, first with known engine and unkown ship, and the second, both unkown engine and ship, need construction. 
  
-2. `X_bar_x` in parameter space. (todo refactoring)
+2. `X|x` in parameter space. (todo refactoring)
  - generate scaled timeseries features: trend, seasonality, event, self-lag etc
  - generate hierarchical feature i.e. group index 
  - select feature. e.g. blackbox forward and backward selection algorithm while more adaptive spike-and-slad (todo) or more transparent causal effect based selection (todo) are possible                                                  
 
-3. `Theta_bar_Y_bar_X` is from data to parameter space. 
+3. `Theta|XY` is from data to parameter space. 
  - infer parameter values given data for each predictor
  - design pooling structure between different predictors with the assumption: Theta_bar_Y|X = a is similar to Theta_bar_Y|X = b
- - `extreme` increase estimation/simulation efficiency using splitting, exploiting regeneration structure**, verification techniques to model extreme event where `Theta_bar_Y_bar_X` is highly inefficient 
- - [simulation-based calibration](https://github.com/hyunjimoon/SBC) can be applied to verify the inferential result
+ - `extreme` increase estimation/simulation efficiency using splitting, exploiting regeneration structure**, verification techniques to model extreme event where `Theta_bar_XY` is highly inefficient 
 
-4. `QI_bar_Theta` is from parameter to QI space.
+4. `QI|Theta` is from parameter to QI space. 
  - marginalize out nuisance parameter to calculate posterior of continuous QI (e.g. scaled failure counts) or marginal likelihood of discrete QI (e.g. preventive maintenance period)s: schedule two types of maintenance: preventive triggered by inspection & corrective 
  - remove the middle target (prediction) to directly address the decision problem ([Bayesian optimization](https://ieeexplore.ieee.org/document/7352306), [Smart predict then optimize](https://www.ima.umn.edu/materials/2018-2019.1/W10.3-5.18/27490/SPO_121317.pdf))  
  - design pooling strucutre in data space: determine the model weight for Bayesian model averaging and stacking especially in HM (todo)
  - design pooling strucutre in parameter space: aggregate parameter distribution from different models on joint parameter space (todo)
  - identify QI options based system requirement e.g. QI = preventive maintenance triggered by inspection & corrective 
- - targeted simulation-based calibration thet concentrate on QI be applied to verify the inferential result
- 
+
+5. `QI|XY` is from data to QI space. 
+It can be built from `QI_bar_Theta` and `Theta_bar_XY`, marginalizing out `Theta`; however this is a standalone quantity achivable with `qi|x,y` samples.
+- targeted simulation-based calibration thet concentrate on QI for verification i.e. internal concordance.
+- `QI|XY` is not worse than `QI|Theta` (todo)
+
+6. Verification and Validation
+- [Simulation-based calibration](https://mc-stan.org/docs/2_27/stan-users-guide/simulation-based-calibration.html) which is maintained in another [repo](https://github.com/hyunjimoon/SBC/tree/api-variant) can be applied to verify `theta|x,y` or `qi|x,y`.
+
 ### References:
 #### Modeling
 - *[Mixed pooling of seasonality for time series forecasting: An application to pallet transport data](https://www.researchgate.net/publication/346259196_Mixed_pooling_of_seasonality_for_time_series_forecasting_An_application_to_pallet_transport_data) Moon, H., Song, B., & Lee H. (2020), under revision.
