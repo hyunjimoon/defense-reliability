@@ -1,5 +1,5 @@
 # Reliabile Defense System
-This repository includes modeling approaches and references on building a reliable defense system. Not only the Bayesian workflow methodologies and its modification to system structure but also the application to real-world problems such as part failure prediction, maintenance policy optimization are our contribution. Topics are categorized with `keyword_`. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **QI := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. QI is a quantity of interest which is the function of inferred parameters; the absense of its closed form can be offset by its evaluation ability. evaluated value of the function at every xi. QI can be offset by its ability to evaluate the value for every point. Captitalized (Y, Theta) represent population random variable (with identified distribution) while the other (y, theta) denote sample values (given data).
+This repository includes modeling approaches and references on building a reliable defense system. Not only the Bayesian workflow methodologies and its modification to system structure but also the application to real-world problems such as part failure prediction, maintenance policy optimization are our contribution. In `R` folder, topics with the following `keyword_` are sorted. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **QI := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. QI is a quantity of interest which is the function of inferred parameters. Captitalized (X, Y, Theta) represent population random variable (with identified distribution) while the other (x, y, theta) denote sample values (given data). **Systme risk management on top of its vertical and horizontal interaction** is our interest and we use **hierarchical and mixture model** as our main frame.
 
 1. `Y_bar_y` in data space. 
 In the presence of limited data, impute raw data with certified assumptions and construct the generative process from Theta to E[Y].
@@ -41,6 +41,9 @@ Rare event estimation and simulation techniques
 - [Modelling Extremal Events estimation](https://www.springer.com/gp/book/9783540609315) explains how to estimate the tails of distributions and Ch.6 is the most illustrative.
 
 - [Introduction to Rare Event Simulation](https://www.springer.com/gp/book/9780387200781) shows efficient Monte Carlo computation to estimate occurrence proabaility of rare events. [Rare-Event Simulation Techniques: An Introduction and Recent Advances (survey)](https://www.sciencedirect.com/science/article/pii/S092705070613011X) introduce a shorter overview.
+
+#### System risk
+[An Axiomatic Approach to Systemic Risk](https://www.jstor.org/stable/23443854?seq=1#metadata_info_tab_contents)
 
 #### Domain knowledge of (Korean) military 
 - [Naval Vessel Spare Parts Demand Forecasting Using Data Mining, Yoon17](http://www.ksie.ne.kr/journal/article.php?code=58051)
