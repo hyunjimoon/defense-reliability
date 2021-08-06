@@ -30,10 +30,10 @@ state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
 states <- as.vector(t(state_matrix))
 
 iter=2000
-MSE_df<-data.frame(index=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),test_MSE=rep(0,iter))
+MSE_df<-data.frame(index=1:2*iter,p=rep(0,2*iter),q=rep(0,2*iter),train_MSE=rep(0,2*iter),test_MSE=rep(0,2*iter))
 rate_array<-data.frame(period=c(),index=c(),rate=c())
-D_array <- array(0, dim=c(iter,4,3,3))
-ship_ind_df<-matrix(0,nrow=iter,ncol=5)
+D_array <- array(0, dim=c(iter*2,4,3,3))
+ship_ind_df<-matrix(0,nrow=iter*2,ncol=5)
 
 test_ship_ind= c(17,20,24,77,82) #sort(sample(1:99,5)) #c(17,20,24,77,82)
 ship_ind_df[1,]=test_ship_ind
@@ -44,70 +44,62 @@ test_data <- states[test_ind]
 stan_data <- list(N= length(train_data),T = max(imputed_data$age_ind[-test_ind]), S = 3, P = 4, states=train_data, obs2time=imputed_data$age_ind[-test_ind], initial_state=initial_state)
 sampling_res<-sampling(model_DMsep,stan_data, iter = 2000, cores=4)
 res_df<-as.data.frame(sampling_res)
-sample_mean<-apply(res_df,2,mean) #write.csv(sample_mean, "./data/DMSep_validation_trueparam.csv")
-
+                  
 # deprecated - may change DM_pow to latent_states
-predicted_state<-matrix(0,nrow=31,ncol=3)
-DM_pow<-array(0,dim=c(31,3,3))
-
-for (t in 1:31){
-  for (k in 1:3){
-    for (j in 1:3){
-      DM_pow[t,k,j]=sample_mean[paste0("DM_pow[",t,",",k,",", j,"]")]
+sample_mean<-apply(res_df,2,mean) #write.csv(sample_mean, "./data/DMSep_validation_trueparam.csv") or sample_mean[1:338]
+  
+predicted_state<-array(0,dim=c(4000,31,3))
+DM_pow<-array(0,dim=c(4000,31,3,3))
+for (iter in 1:4000){
+  for (t in 1:31){
+    for (k in 1:3){
+      for (j in 1:3){
+        DM_pow[iter,t,k,j]=res_df[iter,paste0("DM_pow[",t,",",k,",", j,"]")]
+      }
     }
-  }
-  predicted_state[t,]=DM_pow[t,,]%*%c(1,0,0)
-}
-
-MSE_df[i,2]=res$par["p"]
-MSE_df[i,3]=res$par["q"]
-
-for (era in 1:4){
-  D <- matrix(as.vector(unlist(lapply(1:n_state, function(row){lapply(1:n_state, function(col){res$par[paste0("D[",era,",",row,",",col,"]")]})}))), nrow=3, byrow=T)
-  D_array[i,era,,]=D
-}
-
-for (era in 1:4){
-  for (index in 1:3){
-    rate_array<-rbind(rate_array,data.frame(era=era,index=index,rate=res$par[paste0("rate[",era,",",index,"]")]))
+    predicted_state[iter,t,]=DM_pow[iter,t,,]%*%c(1,0,0)
   }
 }
+MSE_df[,2]=res_df$p21
+MSE_df[,3]=res_df$p31
+SSE_total = array(0,dim=c(4000,99*31))
 
-SSE_total = rep(0,nrow=99*31)
-
-for (ind in 1:(99*31)){
-  SSE_total[ind]=sum((test_data[ind]-predicted_state[(ind-1)%%31+1,])^2)
+to_onehot<-function(x){
+  a=rep(0,3)
+  a[x]=1
+  return (a)
 }
-MSE_df[i,1]=i
-MSE_df[i,5]=sum(SSE_total[test_ind])/5
-MSE_df[i,4]=sum(SSE_total[-test_ind])/94
+onehot_states<-sapply(states,to_onehot)
 
-
-
+for (iter in 1:4000){
+  for (ind in 1:(99*31)){
+    SSE_total[iter,ind]=sum((onehot_states[,ind]-predicted_state[iter,(ind-1)%%31+1,])^2)
+  }
+}
+MSE_df[,5]=apply(SSE_total[,test_ind],1,sum)/5
+MSE_df[,4]=apply(SSE_total[,-test_ind],1,sum)/94
+png(filename="/Users/choiiiiii/Documents/GitHub/defense-reliability/R/2_Theta_bar_Y/DtrMngSep/figure/train_MSE.png")
 par(mfrow=c(1,1))
 hist(MSE_df$test_MSE,breaks=100,main="test MSE",xlab="test MSE")
 hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
 #hist(MSE_df$r,breaks=100,main="r",xlab="r")
+dev.off()
 
+D_array=res_df[,15:50]
 
+rate_array<-res_df[,1:12]
 
-mean_rate=matrix(0,4,3)
-sd_rate=matrix(0,4,3)
-
-rate_vector<-array(0, dim=c(3,4,872))
+rate_vector<-array(0,dim=c(3,4,4000))
 
 par(mfrow=c(1,1))
 
 for(i in 1:3){
   for(era in 1:4){
-    k=1
-    for (j in 1:10464){
-      if (rate_array[j,1]==era && rate_array[j,2]==i){
-        rate_vector[i,era,k]=rate_array[j,3]
-        k=k+1
-      }
+    for (iter in 1:2000){
+      rate_vector[i,era,iter]=rate_array[iter,(i-1)*4+era]
     }
   }
+  png(filename=paste0("/Users/choiiiiii/Documents/GitHub/defense-reliability/R/2_Theta_bar_Y/DtrMngSep/figure/lambda_",i,".png"))
   ymax=max(density(rate_vector[i,1,])$y,density(rate_vector[i,2,])$y,density(rate_vector[i,3,])$y,density(rate_vector[i,4,])$y)
   xmin=min(rate_vector[i,,])
   xmax=max(rate_vector[i,,])
@@ -119,9 +111,11 @@ for(i in 1:3){
   legend("topleft", legend=c("1", "2","3","4"),
          col=c("black","red", "blue","green"), lty=1,
          title="Period", text.font=4, bg='lightblue')
+  dev.off()
 }
 
 
+res_df[1,]
 
 par(mfrow=c(3,3))
 
@@ -153,11 +147,9 @@ for(i in 1:3){
     }
     else if (i==3 && j==2){
       hist(1-MSE_df$q[1:872],breaks=100,main=paste0("Histogram of M[",i,",",j,"]"),xlab=paste0("M[",i,",",j,"]"),xlim=c(0,1))
-
     }
   }
 }
-
 
 
 
