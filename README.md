@@ -1,39 +1,46 @@
 # Reliabile Defense System
-This repository includes modeling approaches and references on building a reliable defense system. Not only the Bayesian workflow methodologies and its modification to system structure but also the application to real-world problems such as part failure prediction, maintenance policy optimization are our contribution. In `R` folder, topics with the following `keyword_` are sorted. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **QI := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. QI is a quantity of interest which is the function of inferred parameters. Captitalized (X, Y, Theta) represent population random variable (with identified distribution) while the other (x, y, theta) denote sample values (given data). **Systme risk management on top of its vertical and horizontal interaction** is our interest and we use **hierarchical and mixture model** as our main frame.
+We build a reliable defense system with failure prediction, system risk measure and optimization, mechanism design techniques.
+
+## Target 1: Posterior of Quantity of interest 
+phi is similar to hyperparameter as it affects data only by means of model parameter (theta) and also they both await modelers' decision. Retroactive exploration of data generation process phi -> theta -> (x,y) proces i.e. decision -> parameter -> data results in (X, Y) -> Theta -> Phi and therefore, posterior of Phi. Two approaches exist:
+- Inductive `phi|x,y` sample via computation. Satisfying targeted simulation-based calibration is the necessary condition which determines sample credibility by inspecting the consistency of sample mechanism (prior, data, posterior simulator).
+- Deductive `Phi|X,Y` density via analytic calculation i.e. get `Phi|Theta` and `Theta|XY` then marginalizing out `Theta`. 
+
+![image](https://user-images.githubusercontent.com/30194633/128450710-4b41ff94-0026-4ff0-b037-db6196d05a7b.png)
+
+## Target 2: Verification and Validation
+- [Simulation-based calibration](https://mc-stan.org/docs/2_27/stan-users-guide/simulation-based-calibration.html) which is maintained in another [repo](https://github.com/hyunjimoon/SBC/tree/api-variant) can be applied to verify `theta|x,y` or `qi|x,y`.
+
+## Target 3: Mechanism Design
+
+## Tool: Y|y, X|x, Theta|XY, Phi|Theta
+In `R` folder, topics with the following keyword are sorted. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **quantity of interest := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. Decision is the best example for quantity of interest (QI)  whose posterior distribution is attained with the help of parameter. Captitalized (X, Y, Theta) represent population random variable (with identified distribution) while the other (x, y, theta) denote sample values (given data). **Systme risk management on top of its vertical and horizontal interaction** is our interest and we use **hierarchical and mixture model** as our main frame.
 
 1. `Y|y` in data space. 
 In the presence of limited data, impute raw data with certified assumptions and construct the generative process from Theta to E[Y].
- - scaling (todo)
+ - transform scale and distribution 
  - explore data via conditioning predictor: E[theta|X=a] vs E[theta|X=b]
  - set resolution. Bin the time axis (e.g. age of the product) by considering the amount of data for individual period interval and the granuality of required forecast
  - identify outlier. Drop noise that murk the main relationship between Ey and theta while preserve the main component of thier relationship Impute two types of data. Data exploration and signal to noise ratio prior knowledge are helpful. Quantile-based drop (or replacement) is the most common.
  - incorporate expert knowledge on distribution and range of data. 
  - construct test set for each scenario or layer. For K-layer hierarchical model (HM), K possible cases exist that needs separate testing; e.g two-layer HM with 1-5-99 engine_archetype(phi)-engine(theta[1..5])-ship(mu[1..99]). Two testsets, first with known engine and unkown ship, and the second, both unkown engine and ship, need construction. 
  
-2. `X|x` in parameter space. (todo refactoring)
+2. `X|x` in parameter space.
  - generate scaled timeseries features: trend, seasonality, event, self-lag etc
  - generate hierarchical feature i.e. group index 
- - select feature. e.g. blackbox forward and backward selection algorithm while more adaptive spike-and-slad (todo) or more transparent causal effect based selection (todo) are possible                                                  
+ - select feature. e.g. blackbox forward and backward selection algorithm while more adaptive spike-and-slad or more transparent causal effect based selection are possible                                                  
 
 3. `Theta|XY` is from data to parameter space. 
  - infer parameter values given data for each predictor
- - design pooling structure between different predictors with the assumption: Theta_bar_Y|X = a is similar to Theta_bar_Y|X = b
- - `extreme` increase estimation/simulation efficiency using splitting, exploiting regeneration structure**, verification techniques to model extreme event where `Theta_bar_XY` is highly inefficient 
+ - design pooling structure between different predictors with the assumption Theta|X = a is similar to Theta|X = b
+ - `extreme` increase estimation/simulation efficiency using splitting, exploiting regeneration structure**, verification techniques to model extreme event where `Theta|XY` is highly inefficient 
 
-4. `QI|Theta` is from parameter to QI space. 
+4. `Phi|Theta` is from parameter to quantity of interest space. 
  - marginalize out nuisance parameter to calculate posterior of continuous QI (e.g. scaled failure counts) or marginal likelihood of discrete QI (e.g. preventive maintenance period)s: schedule two types of maintenance: preventive triggered by inspection & corrective 
  - remove the middle target (prediction) to directly address the decision problem ([Bayesian optimization](https://ieeexplore.ieee.org/document/7352306), [Smart predict then optimize](https://www.ima.umn.edu/materials/2018-2019.1/W10.3-5.18/27490/SPO_121317.pdf))  
- - design pooling strucutre in data space: determine the model weight for Bayesian model averaging and stacking especially in HM (todo)
- - design pooling strucutre in parameter space: aggregate parameter distribution from different models on joint parameter space (todo)
+ - design pooling strucutre in data space: determine the model weight for Bayesian model averaging and stacking especially in HM
+ - design pooling strucutre in parameter space: aggregate parameter distribution from different models on joint parameter space
  - identify QI options based system requirement e.g. QI = preventive maintenance triggered by inspection & corrective 
-
-5. `QI|XY` is from data to QI space. 
-It can be built from `QI_bar_Theta` and `Theta_bar_XY`, marginalizing out `Theta`; however this is a standalone quantity achivable with `qi|x,y` samples.
-- targeted simulation-based calibration thet concentrate on QI for verification i.e. internal concordance.
-- `QI|XY` is not worse than `QI|Theta` (todo)
-
-6. Verification and Validation
-- [Simulation-based calibration](https://mc-stan.org/docs/2_27/stan-users-guide/simulation-based-calibration.html) which is maintained in another [repo](https://github.com/hyunjimoon/SBC/tree/api-variant) can be applied to verify `theta|x,y` or `qi|x,y`.
 
 ### References:
 #### Modeling
@@ -56,6 +63,9 @@ Rare event estimation and simulation techniques
 - [Forecasting Spare Parts Demand of Military Aircraft: Comparisons of Data Mining Techniques and Managerial Features from the Case of South Korea](https://www.mdpi.com/2071-1050/12/15/6045)
 - [모듈형 엔진의 수명관리를 고려한 항공기-임무 할당 모형](https://nextoptext.slack.com/archives/C013D35MN9J/p1610967442002200)
 ![image](https://user-images.githubusercontent.com/30194633/112784366-79e7fd00-908c-11eb-9aab-3728108675c7.png)
+
+#### Contract and behavior
+tbc
 
 ##### Note
 - For the techniques we (NextOpt team) developed, refer to the writeup folder.
