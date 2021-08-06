@@ -19,19 +19,16 @@ transformed data {
 }
 
 parameters {
-  real<lower=0> rate[P, S];
+  real<lower=0> rate[S];
   real<lower=0, upper=1> p21;
   real<lower=0, upper=1> p31;
 }
 
 transformed parameters {
-  matrix[S, S] Dtr[P]; // Deterioration
+  matrix[S, S] Dtr; // Deterioration
   matrix[S, S] Mnt; // Maintenance
-
-  matrix[S, S] DM_pow[T];
-  //simplex[S] DM_pow[T, S];
+  simplex[S] latent_states[T];
   matrix[S, S] tmp_p;
-  
   // Maintenance
   // is left stoch. matrix, transpose of eq.14 from the paper
   Mnt = [[1, p21, p31],
@@ -39,37 +36,21 @@ transformed parameters {
          [0, 0, 0]];
   // Deterioration by period
   // is left stoch. matrix, transpose of eq.13 from the paper
-  for(p in 1:P){
-    tmp_p[1,1] = exp(-rate[p,1]- rate[p,2]);
-    tmp_p[2,1] = rate[p,1] * exp(-rate[p,3]) * (1-exp(-(rate[p,1]+ rate[p,2] - rate[p,3]))) / (rate[p,1]+ rate[p,2] - rate[p,3]);
-    tmp_p[3,1] = exp(-rate[p,3]);
-    Dtr[p] = [[tmp_p[1,1], 0, 0],
-              [tmp_p[2,1], tmp_p[3,1], 0],
-              [1 - tmp_p[1,1] - tmp_p[2,1], 1 - tmp_p[3,1], 1]];
-  }
+  tmp_p[1,1] = exp(-rate[1]- rate[2]);
+  tmp_p[2,1] = rate[1] * exp(-rate[3]) * (1-exp(-(rate[1]+ rate[2] - rate[3]))) / (rate[1]+ rate[2] - rate[3]);
+  tmp_p[3,1] = exp(-rate[3]);
+  Dtr = [[tmp_p[1,1], 0, 0],
+            [tmp_p[2,1], tmp_p[3,1], 0],
+            [1 - tmp_p[1,1] - tmp_p[2,1], 1 - tmp_p[3,1], 1]];
   // Inhomogenous Dtr
-  DM_pow[1] = Dtr[1];
+  latent_states[1] = Dtr * initial;
   for (t in 2:T){
-    if (t <= 8){
-      DM_pow[t] = Dtr[1] * Mnt * DM_pow[t-1];
-      }
-    else if (t <=20){
-      DM_pow[t] = Dtr[2] * Mnt * DM_pow[t-1];
-      }
-    else if (t <=26){
-      DM_pow[t] = Dtr[3] * Mnt * DM_pow[t-1];
-      }
-    else{
-      DM_pow[t] = Dtr[4] * Mnt * DM_pow[t-1];
-      }
+    latent_states[t] =  (Dtr * Mnt) *latent_states[t-1]; //matrix_power((Dtr * Mnt), (t-1)) * initial;
   }
-  
 }
 
 model {
-
-
   for (n in 1:N){
-    states[n] ~ categorical(DM_pow[obs2time[n]] * initial);
+    states[n] ~ categorical(latent_states[obs2time[n]]);
   }
 }

@@ -1,4 +1,4 @@
-// order: C > E > S
+// order: C > E > S -- Y
 data {
     int <lower = 1> K; // number of basis functions
     int <lower = 1> N; // number of total values

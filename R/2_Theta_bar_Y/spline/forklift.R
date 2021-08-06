@@ -40,3 +40,5 @@ standata_MI <- list("K"= num_knots + 2, "N" = length(data_tb$obs),
 
 sm_MI = cmdstanr::cmdstan_model(stan_file = "R/2_Theta_bar_Y/spline/models/layer3_nc_mixture.stan")
 fit_mcmc_MI <- sm_MI$sample(data = standata_MI, iter_warmup = 500, iter_sampling = 500, parallel_chains = 4) # test code
+
+loo::elpd(fit_mcmc_MI$draws(variables=c("log_lik")))
