@@ -1,20 +1,25 @@
 # Reliabile Defense System
-We build a reliable defense system with failure prediction, system risk measure and optimization, mechanism design techniques.
+[NextOpt team](https://www.hyunjimoon.com/blog/vision-of-my-startup-nextopt/) build a reliable defense system with failure prediction, system risk measure and optimization, mechanism design techniques.
 
-## Target 1: Posterior of Quantity of interest 
-phi is similar to hyperparameter as it affects data only by means of model parameter (theta) and also they both await modelers' decision. Retroactive exploration of data generation process phi -> theta -> (x,y) proces i.e. decision -> parameter -> data results in (X, Y) -> Theta -> Phi and therefore, posterior of Phi. Two approaches exist:
-- Inductive `phi|x,y` sample via computation. Satisfying targeted simulation-based calibration is the necessary condition which determines sample credibility by inspecting the consistency of sample mechanism (prior, data, posterior simulator).
-- Deductive `Phi|X,Y` density via analytic calculation i.e. get `Phi|Theta` and `Theta|XY` then marginalizing out `Theta`. 
+## Target 
+### 1. Posterior of Quantity of interest 
+Quantity of interest (phi) is similar to hyperparameter as it affects data only by means of model parameter (theta) and also they both await modeler's decision. Retroactive exploration of data generation process phi -> theta -> (x,y) process (e.g. decision -> parameter -> data) provides tools for (X, Y) -> Theta -> Phi and therefore, posterior of Phi. Captitalized (X, Y, Theta) represent population random variable (with identified distribution) while (x, y, theta) denote sample values. Two approaches exist for phi posterior:
+- Deductive `Phi|X,Y` density via analytic calculation i.e. get `Phi|Theta` and `Theta|X,Y` then marginalizing out `Theta`.  
+- Inductive `phi|x,y` sample via computation. Satisfying targeted simulation-based calibration is the necessary condition which determines sample credibility by inspecting the consistency of sampling mechanism. Sampling mechanism consists of three simulators: prior, data, and posterior.
 
 ![image](https://user-images.githubusercontent.com/30194633/128450710-4b41ff94-0026-4ff0-b037-db6196d05a7b.png)
 
-## Target 2: Verification and Validation
-- [Simulation-based calibration](https://mc-stan.org/docs/2_27/stan-users-guide/simulation-based-calibration.html) which is maintained in another [repo](https://github.com/hyunjimoon/SBC/tree/api-variant) can be applied to verify `theta|x,y` or `qi|x,y`.
+### 2. System risk and interaction 
+- Systme risk management on top of its **vertical and horizontal interaction** is our interest and we use **hierarchical and mixture model** as our main frame.
+- System dynamics simulation approach is being updated in Moon S. [vensim](https://m.blog.naver.com/mseongam/222059202785) blog.
 
-## Target 3: Mechanism Design
+### 3. Mechanism Design
+- Contract is being updated in Moon S. [supply contract](https://m.blog.naver.com/PostList.naver?blogId=mseongam&categoryNo=6&listStyle=style1) blog.
 
-## Tool: Y|y, X|x, Theta|XY, Phi|Theta
-In `R` folder, topics with the following keyword are sorted. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **quantity of interest := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. Decision is the best example for quantity of interest (QI)  whose posterior distribution is attained with the help of parameter. Captitalized (X, Y, Theta) represent population random variable (with identified distribution) while the other (x, y, theta) denote sample values (given data). **Systme risk management on top of its vertical and horizontal interaction** is our interest and we use **hierarchical and mixture model** as our main frame.
+--- 
+## Tool 
+### 1. Y|y, X|x, Theta|XY, Phi|Theta
+In `R` folder, topics with the following keyword are sorted. Notice the change of background space: from **data = Y** to **parameter = Theta** than to **quantity of interest := f(Theta) | X**. X is a predictor with (n x p) matrix and y is a data with length n vector. Decision is the best example for quantity of interest (QI)  whose posterior distribution is attained with the help of parameter.
 
 1. `Y|y` in data space. 
 In the presence of limited data, impute raw data with certified assumptions and construct the generative process from Theta to E[Y].
@@ -41,6 +46,9 @@ In the presence of limited data, impute raw data with certified assumptions and 
  - design pooling strucutre in data space: determine the model weight for Bayesian model averaging and stacking especially in HM
  - design pooling strucutre in parameter space: aggregate parameter distribution from different models on joint parameter space
  - identify QI options based system requirement e.g. QI = preventive maintenance triggered by inspection & corrective 
+
+### 2. Verification and Validation
+- To verify `theta|x,y` or `qi|x,y`, [Simulation-based calibration](https://mc-stan.org/docs/2_27/stan-users-guide/simulation-based-calibration.html) which is maintained in another [repo](https://github.com/hyunjimoon/SBC/tree/api-variant) can be applied.
 
 ### References:
 #### Modeling
