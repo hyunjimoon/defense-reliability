@@ -61,10 +61,10 @@ transformed parameters {
 model {
   for(i in 1:N){
     if (time_obs[i] ==1){
-      target += -(D_pow[time_obs[i]]*initial - state_obs[i])'*(D_pow[time_obs[i]]*initial - state_obs[i]); //how to prevent DM_pow[0]?
-    }
-    else{
-      target += -(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial - state_obs[i])'*(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial - state_obs[i]);
+      target += -log((D_pow[time_obs[i]]*initial) * state_obs[i]);
+      } 
+      else{
+        target += -dot_product(log(DM_pow[time_obs[i]-1] * D_pow[time_obs[i]] * initial), state_obs[i]);
     }
 }
 }
