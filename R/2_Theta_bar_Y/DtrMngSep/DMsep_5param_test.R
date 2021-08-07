@@ -1,48 +1,47 @@
-source(file.path(getwd(), "R/1_Y_bar_y/impute/mice_imputation.R"))
-scriptDir <- getwd()
-set.seed(210106)
 library(rstan)
 library(cmdstanr)
 library(ggplot2)
 library(scales)
-
-#cmdstan: model_DMsep <-stan_m(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
-model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
-
-mice_imp <- generateMice()
-imputed_data<- complete(mice_imp, 1)
-
-imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
-imputed_data$y_data <- unlist(c(imputed_data_gp))
-#################################### DM_sep
-# original policy (wihtout pm)
-n_state = 3
-initial_state = 1
-
-generate_state_matrix <- function(data, n){
-  #state <- cut(data, breaks=c(0, 80, 160, max(data)), labels=1:n, include.lowest = TRUE)
-  state <- cut(data, breaks=quantile(data,c(0,1/3,2/3,1)), labels=1:n, include.lowest = TRUE)
-  state<-as.numeric(state)
-  matrix(state,nrow=31)
+source(file.path(getwd(), "R/1_Y_bar_y/impute/mice_imputation.R"))
+set.seed(210106)
+gpImputeDMSepFit <- function(train_ship_ind){
+  #cmdstan: model_DMsep <-stan_m(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
+  model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
+  mice_imp <- generateMice()
+  imputed_data<- complete(mice_imp, 1)
+  imputed_data_gp <- read.csv("data/y_pred_5var.csv")[,-1]
+  imputed_data$y_data <- unlist(c(imputed_data_gp))
+  #################################### DM_sep
+  # original policy (wihtout pm)
+  n_state = 3
+  initial_state = 1
+  generate_state_matrix <- function(data, n){
+    #state <- cut(data, breaks=c(0, 80, 160, max(data)), labels=1:n, include.lowest = TRUE)
+    state <- cut(data, breaks=quantile(data,c(0,1/3,2/3,1)), labels=1:n, include.lowest = TRUE)
+    state<-as.numeric(state)
+    matrix(state,nrow=31)
+  }
+  state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
+  states <- as.vector(t(state_matrix))
+  iter=2000
+  MSE_df<-data.frame(index=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),test_MSE=rep(0,iter))
+  rate_array<-data.frame(period=c(),index=c(),rate=c())
+  D_array <- array(0, dim=c(iter,4,3,3))
+  ship_ind_df<-matrix(0,nrow=iter,ncol=5)
+  train_ind=c(sapply(train_ship_ind,function(x) (x-1)*31+(1:31)))
+  stan_data <- list(N= length(train_ind),T = max(imputed_data$age_ind[train_ind]), S = 3, P = 4, states=states[train_ind], obs2time=imputed_data$age_ind[train_ind], initial_state=initial_state)
+  sampling_res<-sampling(model_DMsep,stan_data, iter = 2000, cores=4)
+  return (sampling_res)
 }
 
-state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
-states <- as.vector(t(state_matrix))
-
-iter=2000
-MSE_df<-data.frame(index=rep(0,iter),p=rep(0,iter),q=rep(0,iter),train_MSE=rep(0,iter),test_MSE=rep(0,iter))
-rate_array<-data.frame(period=c(),index=c(),rate=c())
-D_array <- array(0, dim=c(iter,4,3,3))
-ship_ind_df<-matrix(0,nrow=iter,ncol=5)
-
-test_ship_ind= c(17,20,24,77,82) #sort(sample(1:99,5)) #c(17,20,24,77,82)
+test_ship_ind= c(17,20,24,77,82) #sort(sample(1:99,5)) = c(17,20,24,77,82)
 ship_ind_df[1,]=test_ship_ind
 test_ind=c(sapply(test_ship_ind,function(x) (x-1)*31+(1:31)))
-
 train_data <- states[-test_ind]
 test_data <- states[test_ind]
-stan_data <- list(N= length(train_data),T = max(imputed_data$age_ind[-test_ind]), S = 3, P = 4, states=train_data, obs2time=imputed_data$age_ind[-test_ind], initial_state=initial_state)
-sampling_res<-sampling(model_DMsep,stan_data, iter = 2000, cores=4)
+#sort(sample(1:99,5)) #c(17,20,24,77,82)
+gpImputeDMSepFit(c(17,20,24,77,82))
+
 res_df<-as.data.frame(sampling_res)
 sample_mean<-apply(res_df,2,mean) #write.csv(sample_mean, "./data/DMSep_validation_trueparam.csv")
 

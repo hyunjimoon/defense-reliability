@@ -28,7 +28,9 @@ transformed parameters {
   matrix[S, S] Dtr; // Deterioration
   matrix[S, S] Mnt; // Maintenance
   simplex[S] latent_states[T];
-  matrix[S, S] tmp_p;
+  real<lower = 0> tmp_p11;
+  real<lower = 0> tmp_p21;
+  real<lower = 0> tmp_p31;
   // Maintenance
   // is left stoch. matrix, transpose of eq.14 from the paper
   Mnt = [[1, p21, p31],
@@ -36,12 +38,12 @@ transformed parameters {
          [0, 0, 0]];
   // Deterioration by period
   // is left stoch. matrix, transpose of eq.13 from the paper
-  tmp_p[1,1] = exp(-rate[1]- rate[2]);
-  tmp_p[2,1] = rate[1] * exp(-rate[3]) * (1-exp(-(rate[1]+ rate[2] - rate[3]))) / (rate[1]+ rate[2] - rate[3]);
-  tmp_p[3,1] = exp(-rate[3]);
-  Dtr = [[tmp_p[1,1], 0, 0],
-            [tmp_p[2,1], tmp_p[3,1], 0],
-            [1 - tmp_p[1,1] - tmp_p[2,1], 1 - tmp_p[3,1], 1]];
+  tmp_p11 = exp(-rate[1]- rate[2]);
+  tmp_p21 = rate[1] * exp(-rate[3]) * (1-exp(-(rate[1]+ rate[2] - rate[3]))) / (rate[1]+ rate[2] - rate[3]);
+  tmp_p31 = exp(-rate[3]);
+  Dtr = [[tmp_p11, 0, 0],
+            [tmp_p21, tmp_p31, 0],
+            [1 - tmp_p11 - tmp_p21, 1 - tmp_p31, 1]];
   // Inhomogenous Dtr
   latent_states[1] = Dtr * initial;
   for (t in 2:T){
