@@ -44,7 +44,7 @@ transformed parameters {
   Dtr = [[tmp_p11, 0, 0],
             [tmp_p21, tmp_p31, 0],
             [1 - tmp_p11 - tmp_p21, 1 - tmp_p31, 1]];
-  // Inhomogenous Dtr
+  // (In) or homogenous Dtr
   latent_states[1] = Dtr * initial;
   for (t in 2:T){
     latent_states[t] =  (Dtr * Mnt) *latent_states[t-1]; //matrix_power((Dtr * Mnt), (t-1)) * initial;
@@ -54,5 +54,11 @@ transformed parameters {
 model {
   for (n in 1:N){
     states[n] ~ categorical(latent_states[obs2time[n]]);
+  }
+}
+generated quantities{
+int<lower=0, upper =S> gen_states[N];
+  for (n in 1:N){
+    gen_states[n] = categorical_rng(latent_states[obs2time[n]]);
   }
 }
