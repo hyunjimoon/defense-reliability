@@ -3,6 +3,7 @@ library(SBC)
 library(mice)
 library(cmdstanr)
 library(dplyr)
+library(posterior)
 library(ConnMatTools)
 source(file.path(getwd(), "R/1_Y_bar_y/impute/engine_fail_imputation.R"))
 source("R/utils/functions.r")
@@ -32,8 +33,7 @@ D_array <- array(0, dim=c(iter,4,3,3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
 
 sampling_res <- gpImputeDMSepFit(1:99)
-true_prival <- subset_draws(as_draws_rvars(sampling_res), chain = 1, iteration = 1:10)
-# 1. prior simulator
+true_prival <- subset_draws(as_draws_rvars(sampling_res), chain = 1, iteration = seq(1, 900, 30))
 # Three ways for prior input: truth-point bencmarking, hyperparameter-based truth-dist, sample-based truth-dist,
 # The first only simulate with one set of value of parameter values while the second and the third simulate with
 # different set of prior values. The second is when the modeler only knows the hyperparmeter of prior values while
@@ -42,8 +42,8 @@ true_prival <- subset_draws(as_draws_rvars(sampling_res), chain = 1, iteration =
 ##############
 # truth-dist. with custom priorval
 ##############
-custom_nprior_generator <- function(p21, p31, rate){
-  n_datasets <- length(p21)
+custom_nprior_generator <- function(true_prival){
+  n_datasets <- niterations(true_prival)
   generated <- list()
   N = 3069
   T = 31
@@ -53,18 +53,21 @@ custom_nprior_generator <- function(p21, p31, rate){
   initial_state = 1
   init_state_vec = rep(0, S);
   init_state_vec[initial_state] = 1
-  latent_states = array(NA, dim=c(T,S))
+  latent_states = matrix(rep(NA, T*S),nrow = T, ncol = S)
   gen_states = array(NA, N)
   rate_vec <- rep(NA, 3)
   for(iter in 1:n_datasets){
-    rate_i = rate[iter,]
+    true_prival_i <- subset_draws(true_prival, iteration = iter)
+    rate_i <- draws_of(true_prival_i$rate)
+    p21_i <- draws_of(true_prival_i$p21)
+    p31_i <- draws_of(true_prival_i$p31)
     # Maintenance
-    Mnt = array(c(1, 0, 0, p21[iter], 1- p21[iter], 0, p31[iter], 1-p31[iter],0), dim=c(S,S))
+    Mnt = array(c(1, 0, 0, p21_i, 1- p21_i, 0, p31_i, 1-p31_i,0), dim=c(S,S))
     # Deterioration
-    tmp_p <- array(rep(NA, S * S), dim=c(S,S))
-    tmp_p[1,1] <- exp(-rate_i[1]- rate_i[2])
-    tmp_p[2,1] <- rate_i[1] * exp(-rate_i[3]) * (1-exp(-(rate_i[1] + rate_i[2] - rate_i[3]))) / (rate_i[1] + rate_i[2] - rate_i[3])
-    tmp_p[3,1] <- exp(-rate_i[3])
+    tmp_p <- array(rep(0, S * S), dim=c(S,S))
+    tmp_p[1,1] <- exp(- rate_i[,1]-  rate_i[,2])
+    tmp_p[2,1] <-  rate_i[,1] * exp(- rate_i[,3]) * (1-exp(-( rate_i[,1] +  rate_i[,2] -  rate_i[,3]))) / ( rate_i[,1] +  rate_i[,2] -  rate_i[,3])
+    tmp_p[3,1] <- exp(- rate_i[,3])
     Dtr <- array(c(tmp_p[1,1], tmp_p[2,1], 1- tmp_p[1,1], 0, tmp_p[3,1], 1 - tmp_p[3,1], 0,0,1), dim=c(S, S))
     latent_states[1,] <- Dtr %*% init_state_vec
     for (t in 2:T){
@@ -74,15 +77,11 @@ custom_nprior_generator <- function(p21, p31, rate){
     generated[[iter]] <- list(N = N, T = T, S = S, P = P, states = gen_states, obs2time = obs2time, initial_state = initial_state)
   }
   SBC_datasets(
-    parameters = posterior::as_draws_matrix(posterior::draws_rvars(p21 = rvar(p21), p31 = rvar(p31), rate = rvar(rate))),
+    parameters = posterior::as_draws_matrix(posterior::draws_rvars(p21 = true_prival$p21, p31 = true_prival$p31, rate = true_prival$rate)),
     generated <- generated
   )
 }
-prival <- list(p21 = sampling_res_rvar$p21, p31 = sampling_res_rvar$p31, rate = sampling_res_rvar$rate)
-pri_val <- list(p21 = c(0.8, 0.7,0.81,0.8, 0.7,0.81,0.8, 0.7,0.81), p31 = c(0.8, 0.7,0.81,0.8, 0.7,0.81,0.8, 0.7,0.81),
-      rate =matrix(c(.66, .27, .65, .7, .3,.55, 0.69, .26, .66, .66, .27, .65, .7, .3,.55, 0.69, .26, .66, .66, .27, .65, .7, .3,.55, 0.69, .26, .66), nrow = 9, ncol = 3, byrow = TRUE))
-datasets <- custom_nprior_generator(p21 = c(0.8, 0.7,0.81,0.8, 0.7,0.81,0.8, 0.7,0.81), p31 = c(0.8, 0.7,0.81,0.8, 0.7,0.81,0.8, 0.7,0.81), rate =matrix(c(.66, .27, .65, .7, .3,.55, 0.69, .26, .66, .66, .27, .65, .7, .3,.55, 0.69, .26, .66, .66, .27, .65, .7, .3,.55, 0.69, .26, .66), nrow = 9, ncol = 3, byrow = TRUE))
-datasets <- custom_nprior_generator(prival)
+datasets <- custom_nprior_generator(true_prival)
+backend <- cmdstan_sample_SBC_backend(DMSep, iter_warmup = 200, iter_sampling = 200)
+results <- compute_results(datasets, backend)
 plot_ecdf_diff(results)
-
-
