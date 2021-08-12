@@ -57,8 +57,9 @@ summary_df<-data.frame(variable=c("lambda1","lambda2","lambda3","p21","p31"),mea
 
 # rate 1,2,3
 
+
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/new_lambdas.png"),width=800,height=400)
 par(mfrow=c(1,3))
-#png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/new_lambdas.png"))
 for (i in 1:3){
   ymax=max(density(res_df[,i])$y)
   xmin=min(res_df[,i])
@@ -68,21 +69,20 @@ for (i in 1:3){
   summary_df[i,3]=sd(res_df[,i])
   lines(density(res_df[,i]),lwd=2)
 }
-#dev.off()
+dev.off()
 
 # M(p12,p13)
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/M_21_31.png"),width=800,height=400)
 
 par(mfrow=c(1,2))
-
 for (i in c("p21","p31")){
-  png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/M_",i,".png"))
   ymax=max(density(res_df[,i])$y)
   xmin=min(res_df[,i])
   xmax=max(res_df[,i])
   hist(-100,ylim=c(0,ymax),xlim=c(xmin,xmax),main=paste0(i),xlab="",freq=FALSE)
   lines(density(res_df[,i]),lwd=2)
-  dev.off()
 }
+dev.off()
 
 summary_df[4,2]=mean(res_df[,"p21"])
 summary_df[4,3]=sd(res_df[,"p21"])
@@ -184,9 +184,10 @@ dev.off()
 
 # y hat 
 
-gen<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_gen.RDS")\
+gen<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_gen.RDS")
 gen<-as.data.frame(gen)
-gen[1,(3188-31*99+1):3188]
+gen[1,120:121]
+gen[1,120:3188]
 gen[,3188]
  
 # MSE
