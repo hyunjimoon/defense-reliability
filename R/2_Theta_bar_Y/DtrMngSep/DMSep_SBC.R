@@ -33,7 +33,8 @@ D_array <- array(0, dim=c(iter,4,3,3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
 
 sampling_res <- gpImputeDMSepFit(1:99)
-true_prival <- subset_draws(as_draws_rvars(sampling_res), chain = 1, iteration = seq(1, 900, 30))
+saveRDS(sampling_res, "sample_genstate.RDS")
+true_prival <- subset_draws(as_draws_rvars(sampling_res), chain = 1, iteration = seq(1, 981, by = 20))
 # Three ways for prior input: truth-point bencmarking, hyperparameter-based truth-dist, sample-based truth-dist,
 # The first only simulate with one set of value of parameter values while the second and the third simulate with
 # different set of prior values. The second is when the modeler only knows the hyperparmeter of prior values while
@@ -68,7 +69,7 @@ custom_nprior_generator <- function(true_prival){
     tmp_p[1,1] <- exp(- rate_i[,1]-  rate_i[,2])
     tmp_p[2,1] <-  rate_i[,1] * exp(- rate_i[,3]) * (1-exp(-( rate_i[,1] +  rate_i[,2] -  rate_i[,3]))) / ( rate_i[,1] +  rate_i[,2] -  rate_i[,3])
     tmp_p[3,1] <- exp(- rate_i[,3])
-    Dtr <- array(c(tmp_p[1,1], tmp_p[2,1], 1- tmp_p[1,1], 0, tmp_p[3,1], 1 - tmp_p[3,1], 0,0,1), dim=c(S, S))
+    Dtr <- array(c(tmp_p[1,1], tmp_p[2,1], 1- tmp_p[1,1] - tmp_p[2,1], 0, tmp_p[3,1], 1 - tmp_p[3,1], 0,0,1), dim=c(S, S))
     latent_states[1,] <- Dtr %*% init_state_vec
     for (t in 2:T){
       latent_states[t,] <-  (Dtr %*% Mnt) %*% latent_states[t-1,]
@@ -82,6 +83,6 @@ custom_nprior_generator <- function(true_prival){
   )
 }
 datasets <- custom_nprior_generator(true_prival)
-backend <- cmdstan_sample_SBC_backend(DMSep, iter_warmup = 200, iter_sampling = 200)
-results <- compute_results(datasets, backend)
-plot_ecdf_diff(results)
+backend <- cmdstan_sample_SBC_backend(DMSep, iter_warmup = 500, iter_sampling = 200)
+results_new <- compute_results(datasets, backend)
+plot_ecdf_diff(results_new)
