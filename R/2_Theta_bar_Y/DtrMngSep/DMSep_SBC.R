@@ -9,6 +9,7 @@ source(file.path(getwd(), "R/1_Y_bar_y/impute/engine_fail_imputation.R"))
 source("R/utils/functions.r")
 source("R/2_Theta_bar_Y/DtrMngSep/DMsep_5param_test.R")
 modelName = "DMSep"
+modelName = "DMSep_inhomo"
 Dir <- set_get_Dir(modelName,  "~/Dropbox/21S_paper/defense-reliability/R/2_Theta_bar_Y/DtrMngSep")
 DMSep = cmdstanr::cmdstan_model(Dir$file)
 
@@ -33,7 +34,7 @@ D_array <- array(0, dim=c(iter,4,3,3))
 ship_ind_df<-matrix(0,nrow=iter,ncol=5)
 
 sampling_res <- gpImputeDMSepFit(1:99)
-saveRDS(sampling_res, "sample_genstate.RDS")
+saveRDS(sampling_res, "sample_genstate_inhomo.RDS")
 true_prival <- subset_draws(as_draws_rvars(sampling_res), chain = 1, iteration = seq(1, 981, by = 20))
 # Three ways for prior input: truth-point bencmarking, hyperparameter-based truth-dist, sample-based truth-dist,
 # The first only simulate with one set of value of parameter values while the second and the third simulate with
@@ -84,5 +85,5 @@ custom_nprior_generator <- function(true_prival){
 }
 datasets <- custom_nprior_generator(true_prival)
 backend <- cmdstan_sample_SBC_backend(DMSep, iter_warmup = 500, iter_sampling = 200)
-results_new <- compute_results(datasets, backend)
-plot_ecdf_diff(results_new)
+results_10 <- compute_results(datasets, backend, thin_ranks = 10)
+plot_ecdf_diff(results_10)
