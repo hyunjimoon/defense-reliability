@@ -7,7 +7,7 @@ library(ggplot2)
 library(scales)
 
 #cmdstan: model_DMsep <-stan_m(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
-model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
+#model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
 
 mice_imp <- generateMice()
 imputed_data<- complete(mice_imp, 1)
@@ -28,6 +28,7 @@ generate_state_matrix <- function(data, n){
 
 state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
 states <- as.vector(t(state_matrix))
+
 
 iter=2000
 MSE_df<-data.frame(index=1:2*iter,p=rep(0,2*iter),q=rep(0,2*iter),train_MSE=rep(0,2*iter),test_MSE=rep(0,2*iter))
@@ -184,12 +185,111 @@ dev.off()
 
 # y hat 
 
+# ver 1
+
 gen<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_gen.RDS")
 gen<-as.data.frame(gen)
-gen[1,120:121]
-gen[1,120:3188]
-gen[,3188]
- 
+
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+gen_matrix=matrix(apply(gen[,120:3188],2,getmode),nrow=31,byrow=T)
+
+plot(1:31,apply(state_matrix,1,getmode),type="b")
+lines(1:31,apply(gen_matrix,1,getmode),col="red",type="p")
+
+sum(apply(state_matrix,1,getmode)==apply(gen_matrix,1,getmode))
+
+# ver 2
+
+gen2<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_genstate.RDS")
+gen2<-as.data.frame(gen2)
+gen_matrix2=matrix(apply(gen2[,120:3188],2,getmode),nrow=31,byrow=T)
+
+sum(apply(state_matrix,1,getmode)==apply(gen_matrix2,1,getmode))
+
+library(reshape2)
+calc_rate<-function(x){
+  return(c(sum(x==1),sum(x==2),sum(x==3))/99)
+}
+
+stat.c<-apply(state_matrix,1,calc_rate)
+stat.m<-melt(stat.c)
+stat.m$Var1=factor(stat.m$Var1)
+stat.m$Var2=factor(stat.m$Var2)
+stat.m$ratio=stat.m$value
+stat.m$t=stat.m$Var2
+stat.m$state=stat.m$Var1
+
+ggplot(stat.m,aes(t,state))+geom_point(aes(size=ratio^2)) + theme(aspect.ratio = 0.1) 
+
+
+gen.c<-apply(gen_matrix2,1,calc_rate)
+gen.m<-melt(gen.c)
+gen.m$Var1=factor(gen.m$Var1)
+gen.m$Var2=factor(gen.m$Var2)
+gen.m$genratio=gen.m$value
+gen.m$gent=gen.m$Var2
+gen.m$genstate=gen.m$Var1
+
+merge<-cbind(stat.m,gen.m)
+merge<-merge[,c(3,4,5,6,10,11,12)]
+
+q2=ggplot(merge,aes(t,state))+ geom_point(aes(size=genratio^2),color="red", shape=1) +geom_point(aes(size=ratio^2),shape=1) + theme(aspect.ratio = 0.1)
+q2
+ggsave(plot = q2, width = 10, height = 2, filename = "merged_states.png")
+
+
+
+gen.c<-apply(gen_matrix2,1,calc_rate)
+largest_gen=apply(gen.c,2,function(x){res=rep(0,3);res[which.max(x)]=1;return(res)})
+largest.m<-melt(largest_gen)
+largest.m$Var1=factor(largest.m$Var1)
+largest.m$Var2=factor(largest.m$Var2)
+
+largest.m$genratio=largest.m$value
+largest.m$gent=largest.m$Var2
+largest.m$genstate=largest.m$Var1
+
+merged_2<-cbind(stat.m,largest.m)
+merged_2<-merged_2[,c(3,4,5,6,10,11,12)]
+
+merged_2$count_ratio=merged_2$genratio
+
+q3=ggplot(merged_2,aes(t,state))+ geom_point(aes(size=count_ratio^2),color="red", shape=1) +geom_point(aes(size=ratio^2)) + theme(aspect.ratio = 0.1)
+q3
+ggsave(plot = q3, width = 10, height = 2, filename = "merged_states.ver2.png")
+
+
+# ver 3 : inhomogeneous
+
+gen3<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_genstate_inhomo.RDS")
+gen3<-as.data.frame(gen2)
+gen_matrix3=matrix(apply(gen3[,120:3188],2,getmode),nrow=31,byrow=T)
+
+gen.c3<-apply(gen_matrix3,1,calc_rate)
+largest_gen3=apply(gen.c3,2,function(x){res=rep(0,3);res[which.max(x)]=1;return(res)})
+largest3.m<-melt(largest_gen3)
+largest3.m$Var1=factor(largest3.m$Var1)
+largest3.m$Var2=factor(largest3.m$Var2)
+largest3.m$genratio=largest3.m$value
+largest3.m$gent=largest3.m$Var2
+largest3.m$genstate=largest3.m$Var1
+
+merge3<-cbind(stat.m,largest3.m)
+merge3
+merge3<-merge3[,c(3,4,5,6,10,11,12)]
+merge3$count_ratio=merge3$genratio
+
+q4=ggplot(merge3,aes(t,state))+ geom_point(aes(size=count_ratio^2),color="red", shape=1) +geom_point(aes(size=ratio^2)) + theme(aspect.ratio = 0.1)
+q4
+ggsave(plot = q4, width = 10, height = 2, filename = "merged_states_inhomo.png")
+
+
+
+
 # MSE
 
 MSE_df[,2]=res_df$p21
