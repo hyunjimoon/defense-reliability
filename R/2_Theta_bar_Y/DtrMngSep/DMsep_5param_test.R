@@ -7,7 +7,7 @@ library(ggplot2)
 library(scales)
 
 #cmdstan: model_DMsep <-stan_m(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
-model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
+#model_DMsep <-stan_model(file = (file.path(getwd(), "R/2_Theta_bar_Y/DtrMngSep/models/DMSep/DMSep.stan")))
 
 mice_imp <- generateMice()
 imputed_data<- complete(mice_imp, 1)
@@ -29,6 +29,7 @@ generate_state_matrix <- function(data, n){
 state_matrix <- generate_state_matrix(imputed_data$y_data, n_state)
 states <- as.vector(t(state_matrix))
 
+
 iter=2000
 MSE_df<-data.frame(index=1:2*iter,p=rep(0,2*iter),q=rep(0,2*iter),train_MSE=rep(0,2*iter),test_MSE=rep(0,2*iter))
 rate_array<-data.frame(period=c(),index=c(),rate=c())
@@ -47,19 +48,250 @@ res_df<-as.data.frame(sampling_res)
                   
 # deprecated - may change DM_pow to latent_states
 sample_mean<-apply(res_df,2,mean) #write.csv(sample_mean, "./data/DMSep_validation_trueparam.csv") or sample_mean[1:338]
-  
-predicted_state<-array(0,dim=c(4000,31,3))
-DM_pow<-array(0,dim=c(4000,31,3,3))
-for (iter in 1:4000){
-  for (t in 1:31){
-    for (k in 1:3){
-      for (j in 1:3){
-        DM_pow[iter,t,k,j]=res_df[iter,paste0("DM_pow[",t,",",k,",", j,"]")]
-      }
-    }
-    predicted_state[iter,t,]=DM_pow[iter,t,,]%*%c(1,0,0)
+
+# load sample
+
+res_df<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample.RDS")
+res_df<-as.data.frame(res_df)
+summary_df<-data.frame(variable=c("lambda1","lambda2","lambda3","p21","p31"),mean=rep(0,5),sd=rep(0,5))
+
+
+# rate 1,2,3
+
+
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/new_lambdas.png"),width=800,height=400)
+par(mfrow=c(1,3))
+for (i in 1:3){
+  ymax=max(density(res_df[,i])$y)
+  xmin=min(res_df[,i])
+  xmax=max(res_df[,i])
+  hist(-100,ylim=c(0,ymax),xlim=c(xmin,xmax),main=paste0("Lambda ",i),xlab="",freq=FALSE)
+  summary_df[i,2]=mean(res_df[,i])
+  summary_df[i,3]=sd(res_df[,i])
+  lines(density(res_df[,i]),lwd=2)
+}
+dev.off()
+
+# M(p12,p13)
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/M_21_31.png"),width=800,height=400)
+
+par(mfrow=c(1,2))
+for (i in c("p21","p31")){
+  ymax=max(density(res_df[,i])$y)
+  xmin=min(res_df[,i])
+  xmax=max(res_df[,i])
+  hist(-100,ylim=c(0,ymax),xlim=c(xmin,xmax),main=paste0(i),xlab="",freq=FALSE)
+  lines(density(res_df[,i]),lwd=2)
+}
+dev.off()
+
+summary_df[4,2]=mean(res_df[,"p21"])
+summary_df[4,3]=sd(res_df[,"p21"])
+summary_df[5,2]=mean(res_df[,"p31"])
+summary_df[5,3]=sd(res_df[,"p21"])
+
+#write.csv(summary_df,"summary.csv")
+
+# D
+
+Dtr_summary<-data.frame(coord=c(),mean=c(),sd=c())
+
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/Dtr.png"))
+
+par(mfrow=c(3,3))
+for (j in 1:3){
+  for (i in 1:3){
+    var=paste0("Dtr[",j,",",i,"]")
+    ymax=max(density(res_df[,var])$y)
+    xmin=min(res_df[,var])
+    xmax=max(res_df[,var])
+    mean=mean(res_df[,var])
+    sd=sd(res_df[,var])
+    Dtr_summary=rbind(Dtr_summary,data.frame(var,mean,sd))
+    xlab=paste0("mean=",round(mean,2),", sd=",round(sd,2))
+    hist(-100,ylim=c(0,ymax),xlim=c(xmin,xmax),ylab="",main=var,xlab=xlab,freq=FALSE)
+    lines(density(res_df[,var]),lwd=2)
   }
 }
+
+dev.off()
+
+write.csv(Dtr_summary,"R/2_Theta_bar_Y/DtrMngSep/Dtr_summary.csv")
+
+# M
+
+M_summary<-data.frame(coord=c(),mean=c(),sd=c())
+
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/M.png"))
+
+par(mfrow=c(3,3))
+for (j in 1:3){
+  for (i in 1:3){
+    var=paste0("Mnt[",j,",",i,"]")
+    ymax=max(density(res_df[,var])$y)
+    xmin=min(res_df[,var])
+    xmax=max(res_df[,var])
+    mean=mean(res_df[,var])
+    sd=sd(res_df[,var])
+    M_summary=rbind(M_summary,data.frame(var,mean,sd))
+    xlab=paste0("mean=",round(mean,2),", sd=",round(sd,2))
+    hist(-100,ylim=c(0,ymax),xlim=c(xmin,xmax),ylab="",main=var,xlab=xlab,freq=FALSE)
+    lines(density(res_df[,var]),lwd=2)
+  }
+}
+
+dev.off()
+
+write.csv(M_summary,"R/2_Theta_bar_Y/DtrMngSep/M_summary.csv")
+
+
+# final plot
+
+library(ggpubr)
+
+p1=c()
+p2=c()
+p3=c()
+for (t in 1:31){
+  p1=c(p1,res_df[,paste0("latent_states[",t,",1]")])
+  p2=c(p2,res_df[,paste0("latent_states[",t,",2]")])
+  p3=c(p3,res_df[,paste0("latent_states[",t,",3]")])
+}
+predicted_df<-data.frame(t=rep(1:31,each=4000),p1=p1,p2=p2,p3=p3)
+predicted_df_2<-data.frame(t=rep(rep(1:31,each=4000),3),p=c(p1,p2,p3),state=rep(1:3,each=31*4000))
+predicted_df_2[,3]=factor(predicted_df_2[,3])
+
+ggscatter(predicted_df_2, x = "t", y = "p",
+          add = "reg.line",                         # Add regression line
+          conf.int = TRUE,                          # Add confidence interval
+          color = "state",          # Color by groups "cyl"
+          shape = "state"                             # Change point shape by groups "cyl"
+)
+
+p <- ggplot(predicted_df_2) + 
+  geom_line(aes(y = p, x = t, group = state ))+
+  geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, x =t, fill = "grey70"), alpha = 0.3)+
+  scale_colour_manual("", values = "blue")+
+  scale_fill_manual("", values = "grey12")
+
+
+png(filename=paste0("R/2_Theta_bar_Y/DtrMngSep/figure/predicted_states.png"))
+
+ggplot(data =predicted_df_2) + aes(x = t, y = p) +
+    geom_point(alpha = 0.1, aes(color=state))
+
+
+dev.off()
+
+# y hat 
+
+# ver 1
+
+gen<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_gen.RDS")
+gen<-as.data.frame(gen)
+
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+gen_matrix=matrix(apply(gen[,120:3188],2,getmode),nrow=31,byrow=T)
+
+plot(1:31,apply(state_matrix,1,getmode),type="b")
+lines(1:31,apply(gen_matrix,1,getmode),col="red",type="p")
+
+sum(apply(state_matrix,1,getmode)==apply(gen_matrix,1,getmode))
+
+# ver 2
+
+gen2<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_genstate.RDS")
+gen2<-as.data.frame(gen2)
+gen_matrix2=matrix(apply(gen2[,120:3188],2,getmode),nrow=31,byrow=T)
+
+sum(apply(state_matrix,1,getmode)==apply(gen_matrix2,1,getmode))
+
+library(reshape2)
+calc_rate<-function(x){
+  return(c(sum(x==1),sum(x==2),sum(x==3))/99)
+}
+
+stat.c<-apply(state_matrix,1,calc_rate)
+stat.m<-melt(stat.c)
+stat.m$Var1=factor(stat.m$Var1)
+stat.m$Var2=factor(stat.m$Var2)
+stat.m$ratio=stat.m$value
+stat.m$t=stat.m$Var2
+stat.m$state=stat.m$Var1
+
+ggplot(stat.m,aes(t,state))+geom_point(aes(size=ratio^2)) + theme(aspect.ratio = 0.1) 
+
+
+gen.c<-apply(gen_matrix2,1,calc_rate)
+gen.m<-melt(gen.c)
+gen.m$Var1=factor(gen.m$Var1)
+gen.m$Var2=factor(gen.m$Var2)
+gen.m$genratio=gen.m$value
+gen.m$gent=gen.m$Var2
+gen.m$genstate=gen.m$Var1
+
+merge<-cbind(stat.m,gen.m)
+merge<-merge[,c(3,4,5,6,10,11,12)]
+
+q2=ggplot(merge,aes(t,state))+ geom_point(aes(size=genratio^2),color="red", shape=1) +geom_point(aes(size=ratio^2),shape=1) + theme(aspect.ratio = 0.1)
+q2
+ggsave(plot = q2, width = 10, height = 2, filename = "merged_states.png")
+
+
+
+gen.c<-apply(gen_matrix2,1,calc_rate)
+largest_gen=apply(gen.c,2,function(x){res=rep(0,3);res[which.max(x)]=1;return(res)})
+largest.m<-melt(largest_gen)
+largest.m$Var1=factor(largest.m$Var1)
+largest.m$Var2=factor(largest.m$Var2)
+
+largest.m$genratio=largest.m$value
+largest.m$gent=largest.m$Var2
+largest.m$genstate=largest.m$Var1
+
+merged_2<-cbind(stat.m,largest.m)
+merged_2<-merged_2[,c(3,4,5,6,10,11,12)]
+
+merged_2$count_ratio=merged_2$genratio
+
+q3=ggplot(merged_2,aes(t,state))+ geom_point(aes(size=count_ratio^2),color="red", shape=1) +geom_point(aes(size=ratio^2)) + theme(aspect.ratio = 0.1)
+q3
+ggsave(plot = q3, width = 10, height = 2, filename = "merged_states.ver2.png")
+
+
+# ver 3 : inhomogeneous
+
+gen3<-readRDS("R/2_Theta_bar_Y/DtrMngSep/sample_genstate_inhomo.RDS")
+gen3<-as.data.frame(gen2)
+gen_matrix3=matrix(apply(gen3[,120:3188],2,getmode),nrow=31,byrow=T)
+
+gen.c3<-apply(gen_matrix3,1,calc_rate)
+largest_gen3=apply(gen.c3,2,function(x){res=rep(0,3);res[which.max(x)]=1;return(res)})
+largest3.m<-melt(largest_gen3)
+largest3.m$Var1=factor(largest3.m$Var1)
+largest3.m$Var2=factor(largest3.m$Var2)
+largest3.m$genratio=largest3.m$value
+largest3.m$gent=largest3.m$Var2
+largest3.m$genstate=largest3.m$Var1
+
+merge3<-cbind(stat.m,largest3.m)
+merge3
+merge3<-merge3[,c(3,4,5,6,10,11,12)]
+merge3$count_ratio=merge3$genratio
+
+q4=ggplot(merge3,aes(t,state))+ geom_point(aes(size=count_ratio^2),color="red", shape=1) +geom_point(aes(size=ratio^2)) + theme(aspect.ratio = 0.1)
+q4
+ggsave(plot = q4, width = 10, height = 2, filename = "merged_states_inhomo.png")
+
+
+
+
+# MSE
+
 MSE_df[,2]=res_df$p21
 MSE_df[,3]=res_df$p31
 SSE_total = array(0,dim=c(4000,99*31))
@@ -85,6 +317,7 @@ hist(MSE_df$train_MSE,breaks=100,main="train MSE",xlab="train MSE")
 #hist(MSE_df$r,breaks=100,main="r",xlab="r")
 dev.off()
 
+#rate1, rate2, rate3
 D_array=res_df[,15:50]
 
 rate_array<-res_df[,1:12]
@@ -150,6 +383,8 @@ for(i in 1:3){
     }
   }
 }
+
+#final plot
 
 
 
