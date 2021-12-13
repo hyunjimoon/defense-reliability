@@ -21,11 +21,32 @@ p31 <- true_ratepq$mean[5] #0.2 #
 rate <- true_ratepq$mean[1:3]
 true_pars <-list(p21, p31, rate)
 
+
 generator_single <- function(N,T,S,P){
-  obs2time <- complete(generateMice(), 1)$age_ind # data template only
-  states <- rep(3, N) # data template
-  initial_state <- 1
-  stan_data <- list(N= N,T = max(obs2time), S = 3, P = 4, states=states, obs2time=obs2time, initial_state=initial_state)
+
+  obs2time = complete(generateMice(), 1)$age_ind
+  initial_state = 1
+  init_state_vec = rep(0, S);
+  init_state_vec[initial_state] = 1
+  latent_states = array(NA, dim=c(T,S))
+  # Hyperparameter -> receive as input
+  p21 = true_pars[[1]]
+  p31 = true_pars[[2]]
+  rate = true_pars[[3]]
+  # Maintenance
+  Mnt = array(c(1, 0, 0, p21, 1- p21, 0, p31, 1-p31,0), dim=c(S,S))
+  # Deterioration
+  tmp_p <- array(rep(0, S * S), dim=c(S,S))
+  tmp_p[1,1] = exp(-rate[1]- rate[2]);
+  tmp_p[2,1] = rate[1] * exp(-rate[3]) * (1-exp(-(rate[1]+ rate[2] - rate[3]))) / (rate[1]+ rate[2] - rate[3]);
+  tmp_p[3,1] = exp(-rate[3]);
+  Dtr <- array(c(tmp_p[1,1], tmp_p[2,1], 1- tmp_p[1,1], 0, tmp_p[3,1], 1 - tmp_p[3,1], 0,0,1), dim=c(S, S))
+  latent_states[1,] = Dtr %*% init_state_vec;
+  for (t in 2:T){
+    latent_states[t,] =  (Dtr %*% Mnt) %*% latent_states[t-1,];
+  }
+  states <- sapply(seq(1:length(obs2time)), function(n){sample(c(1,2,3), 1, prob = latent_states[obs2time[n],])})
+  stan_data <- list(N= N,T = 31, S = 3, P = 4, states=states, obs2time=obs2time, initial_state=initial_state)
   list(
     generated = stan_data,
     parameters = list(
@@ -35,7 +56,6 @@ generator_single <- function(N,T,S,P){
     )
   )
 }
-
 
 # Create SBC_Datasets from generator
 
@@ -65,16 +85,20 @@ cache_dir <- "R/2_Theta_bar_Y/DtrMngSep/basic_usage_SBC_cache"
 if(!dir.exists(cache_dir)) {
   dir.create(cache_dir)
 }
+#results <- compute_results(dataset, backend, 
+#                           cache_mode = "results", 
+#                           thin_ranks = 30,
+#                           cache_location = file.path(cache_dir, "results"))
+
 results <- compute_results(dataset, backend, 
-                           cache_mode = "results", 
-                           cache_location = file.path(cache_dir, "results"))
+                           thin_ranks = 100)
 
 # Viewing Results
 
 results$stats
 
 # Plots
-png(file="R/2_Theta_bar_Y/DtrMngSep/SBC_results.png",
+png(file="R/2_Theta_bar_Y/DtrMngSep/SBC_thin_100.png",
     width=600, height=350)
 plot_rank_hist(results)
 dev.off()
