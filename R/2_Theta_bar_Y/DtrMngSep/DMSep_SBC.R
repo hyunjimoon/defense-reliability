@@ -98,8 +98,7 @@ results <- compute_results(dataset, backend,
 results$stats
 
 # Plots
-png(file="R/2_Theta_bar_Y/DtrMngSep/SBC_thin_100.png",
-    width=600, height=350)
+png(file="R/2_Theta_bar_Y/DtrMngSep/figure/SBC_thin_100.png")
 plot_rank_hist(results)
 dev.off()
 
