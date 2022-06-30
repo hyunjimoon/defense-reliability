@@ -32,7 +32,6 @@ def fit_failure_simple(failures):
 
 def fit_failure_count(failures, age_vec, ship_vec, n_ship_types, max_age):
     scaler = PowerTransformer()
-    print(failures.reshape(1, -1).shape)
     scaled_y = scaler.fit_transform(failures.reshape(-1, 1)).flatten()
     y_count = scaled_y.shape[0]
 

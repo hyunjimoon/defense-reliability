@@ -9,7 +9,7 @@ import xarray as xr
 from scipy import stats
 
 from pysd.py_backend.functions import modulo, if_then_else, xidz
-from pysd.py_backend.statefuls import Integ, Smooth
+from pysd.py_backend.statefuls import Smooth, Integ
 from pysd import Component
 
 __pysd_version__ = "3.3.0"
@@ -343,7 +343,7 @@ def initial_value():
     name="Input",
     comp_type="Auxiliary",
     comp_subtype="Normal",
-    depends_on={"repair_shop": 1, "maintenance_time": 1, "inventory": 1, "backlog": 1},
+    depends_on={"repair_shop": 1, "maintenance_time": 1, "backlog": 1, "inventory": 1},
 )
 def input_1():
     return (
