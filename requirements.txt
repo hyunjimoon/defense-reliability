@@ -3,3 +3,4 @@ pandas
 pysd
 cmdstanpy
 matplotlib
+sklearn
