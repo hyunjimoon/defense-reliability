@@ -21,12 +21,6 @@ def build_spline_knots(n_knots, timeframe=31):
         basis.append(splev(np.arange(1, timeframe + 1), (knots_padded, c, degree)))
     basis_df = pd.DataFrame(basis).transpose().set_index(np.arange(1, timeframe + 1))
 
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.set_xlabel('age')
-    ax.set_ylabel('basis')
-    basis_df.plot(ax=ax, legend=False)
-    #plt.savefig("out.png")
-
     return basis_df
 
 def fit_failure_simple(failures):
@@ -62,7 +56,7 @@ def fit_failure_count(failures, age_vec, ship_vec, n_ship_types, max_age):
         "ship_hat": [1]#np.tile(np.arange(1, n_ship_types + 1, dtype=np.int32), max_age)
     }
 
-    yhat = fit_stan_model("policy_models/spline.stan", stan_data, show_console=True)
+    yhat = fit_stan_model("policy_models/spline.stan", stan_data)
 
     return scaler.inverse_transform(yhat.reshape(-1, 1)).flatten()
 
