@@ -17,4 +17,5 @@
 !*.md
 !*.pdf
 !*.mdl
+!requirements.txt
 .Rproj.user
