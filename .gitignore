@@ -16,4 +16,5 @@
 !*.py
 !*.md
 !*.pdf
+!*.mdl
 .Rproj.user
