@@ -11,7 +11,7 @@
 !*.bib
 
 !*.csv
-
+!*.png
 !*.ipynb
 !*.py
 !*.md
