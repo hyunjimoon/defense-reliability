@@ -9,7 +9,7 @@
 !*.Rmd
 !*.rda
 !*.bib
-
+!*.xmile
 !*.csv
 !*.png
 !*.ipynb

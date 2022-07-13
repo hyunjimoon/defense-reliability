@@ -4,7 +4,9 @@
 ## Target 
 ### 1. Posterior of Target Quantity
 Target quantity (phi) has similarity with hyperparameter in that it affects data only by means of model parameter (theta) and also they usually await modeler's decision. Think of decision variable (e.g. portfolio weight) and hyperparameter tuning (e.g. pararmeter of hyperprior). Retroactive exploration of data generation process phi -> theta -> (x,y) process (e.g. decision -> parameter -> data) provides tools for (X, Y) -> Theta -> Phi and therefore, posterior of Phi. Captitalized (X, Y, Theta, Phi) represent population random variable (with identified distribution) while (x, y, theta, phi) denote sample values. Two approaches exist for phi posterior:
-- Deductive `Phi|X,Y` density via analytic calculation i.e. get `Phi|Theta` and `Theta|X,Y` then marginalizing out `Theta`. Integration is replaced with sum for discrete theta e.g. scenarios. 
+
+- Deductive `Phi|X,Y` density via analytic calculation i.e. get `Phi|Theta` and `Theta|X,Y` then marginalizing out `Theta`. Integration is replaced with sum for discrete theta e.g. scenarios.
+ 
 - Inductive `phi|x,y` sample via computation. Satisfying targeted simulation-based calibration is the necessary condition which determines sample credibility by inspecting the consistency of sampling mechanism. Sampling mechanism consists of three simulators: prior, data, and posterior.
 
 ![image](https://user-images.githubusercontent.com/30194633/128450710-4b41ff94-0026-4ff0-b037-db6196d05a7b.png)
